@@ -271,3 +271,19 @@ public:
 //TODO:
 //out ATOMIC_Scene[N], bool[N], in ATOMIC_Scene[N], int2 Moves[N]
 //out ATOMIC_Scene[N], bool[N], in ATOMIC_Scene[M], int2 Moves[N], int MoveOnIndex[N] # ATOMIC_Scenes[MoveOnIndex[i]]
+
+//BFS
+/*
+States[]
+while States not empty do:
+    NewState[] # len(NewState) = 4.0 * len(States)
+    NewStateValid[] # len(NewStateValid) = 4.0 * len(States)
+    do in every thread t:
+        for i, m in AllMovement: # AllMovement: up down left right
+            Valid, CandidateState = States[t].Move(m)
+            NewState[i + 4*t] = CandidateState
+            NewStateValid[i + 4*t] = Valid
+    NewStateValid <- scan: NewStateValid[Valid]
+    States <- remove_duplicate: NewStateValid
+        
+*/
