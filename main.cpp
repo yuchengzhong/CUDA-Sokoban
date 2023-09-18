@@ -1,0 +1,143 @@
+#include <iostream>
+#include <vector>
+#include <windows.h>
+#include <solver.cuh>
+#include "scene.h"
+using namespace std;
+
+#include <windows.h>
+
+#include <thread>
+#include <mutex>
+#include "math.cuh"
+
+std::mutex SceneMutex;
+std::mutex InputMutex;
+int2 PlayerInput = {0,0};
+void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int ImageSizeW, int ImageSizeH)
+{
+    for (int x = 0; x < ImageSizeW; ++x)
+    {
+        for (int y = 0; y < ImageSizeH; ++y)
+        {
+            float3 PRGB = ImageBuffer[x + y * ImageSizeW];
+            uint8_t R = static_cast<uint8_t>(PRGB.x * 255);
+            uint8_t G = static_cast<uint8_t>(PRGB.y * 255);
+            uint8_t B = static_cast<uint8_t>(PRGB.z * 255);
+            SetPixel(TargetHDC, x, y, RGB(R, G, B));
+        }
+    }
+}
+void RenderThreadFunction(Scene& CurrentScene, int3 SceneSize, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
+{
+    float Time = 0.0f;
+    while (true) 
+    {
+        SceneMutex.lock();
+        CurrentScene.MovePlayer(PlayerInput);
+        SceneMutex.unlock();
+
+        SceneMutex.lock();
+        vector<float3> ImageBuffer = Launch_RenderScene(CurrentScene.GetRenderData(), SceneSize, { ImageSizeW , ImageSizeH }, Time);
+        CopyBufferToHDC(TempDC, ImageBuffer, ImageSizeW, ImageSizeH);
+        BitBlt(TargetHDC, 0, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
+        SceneMutex.unlock();
+
+        InputMutex.lock();
+        PlayerInput = { 0, 0 };
+        InputMutex.unlock();
+    }
+}
+
+bool IsKeyPressed(int vKey) 
+{
+    return GetAsyncKeyState(vKey) & 0x8000;
+}
+int2 GetCurrentInputAxis()
+{
+    int IntX = IsKeyPressed(VK_RIGHT) ? 1 : (IsKeyPressed(VK_LEFT) ? -1 : 0);
+    int IntY = IsKeyPressed(VK_UP) ? 1 : (IsKeyPressed(VK_DOWN) ? -1 : 0);
+    return { IntX, IntY };
+}
+int main()
+{
+    HDC TargetHDC = GetDC(GetConsoleWindow());
+    HDC TempDC = CreateCompatibleDC(TargetHDC);
+
+    int ImageSizeW = 384;
+    int ImageSizeH = 384;
+
+    HBITMAP HBitmap = CreateCompatibleBitmap(TargetHDC, ImageSizeW, ImageSizeH);
+    HBITMAP HOldBitmap = (HBITMAP)SelectObject(TempDC, HBitmap);
+
+    Scene TestScene;
+    vector<Actor> SceneActor = {};
+    vector<uint8_t> SceneBlock = {
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+
+        1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1,
+
+        1, 0, 1, 0, 1, 0, 1, 1,
+        0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0,
+        1, 1, 0, 1, 0, 1, 0, 1,
+    };
+    int3 SceneSize = { 8, 8, 3 };
+    TestScene.SetupScene(SceneBlock, SceneActor, SceneSize);
+    TestScene.AddActor({ SOKOBAN_PLAYER_START, 0, {1, 1, 1}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, {-1,-1,-1} });
+    /*
+    while (true)
+    {
+        //Input
+        int IntX = IsKeyPressed(VK_LEFT) ? -1 : 0;
+        IntX += IsKeyPressed(VK_RIGHT) ? 1 : 0;
+        int IntY = IsKeyPressed(VK_DOWN) ? -1 : 0;
+        IntY += IsKeyPressed(VK_UP) ? 1 : 0;
+        //printf("%d, %d\n", IntX, IntY);
+        TestScene.MovePlayer({IntX, IntY});
+        //
+        vector<float3> ImageBuffer = Launch_RenderScene(TestScene.GetRenderData(), SceneSize, { ImageSizeW , ImageSizeH }, Time);
+        CopyBufferToHDC(TempDC, ImageBuffer, ImageSizeW, ImageSizeH);
+        BitBlt(TargetHDC, 0, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
+        //Time += 0.125f;
+    }
+    */
+    std::thread RenderThread(RenderThreadFunction, std::ref(TestScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
+    while (true) 
+    {
+        InputMutex.lock();
+        PlayerInput = (PlayerInput == int2{ 0,0 }) ? GetCurrentInputAxis() : PlayerInput;
+        InputMutex.unlock();
+        //cout << PlayerInput.x << ", " << PlayerInput.y << "\n";
+    }
+    RenderThread.join();
+
+    SelectObject(TempDC, HOldBitmap);
+    DeleteObject(HBitmap);
+    DeleteDC(TempDC);
+    ReleaseDC(GetConsoleWindow(), TargetHDC);
+
+    getchar();
+    return 0;
+}
