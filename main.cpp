@@ -10,6 +10,7 @@ using namespace std;
 #include <thread>
 #include <mutex>
 #include "math.cuh"
+#include "vectorize_scene.cuh"
 
 std::mutex SceneMutex;
 std::mutex InputMutex;
@@ -28,7 +29,7 @@ void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int Imag
         }
     }
 }
-void RenderThreadFunction(Scene& CurrentScene, int3 SceneSize, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
+void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
 {
     float Time = 0.0f;
     while (true) 
@@ -112,6 +113,9 @@ int main()
     TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, {-1,-1,-1} });
     TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, {-1,-1,-1} });
     TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, {-1,-1,-1} });
+
+    ATOMIC_Scene AtomicScene;
+    AtomicScene.InitialFromScene(TestScene);
     /*
     while (true)
     {
@@ -129,7 +133,7 @@ int main()
         //Time += 0.125f;
     }
     */
-    std::thread RenderThread(RenderThreadFunction, std::ref(TestScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
+    std::thread RenderThread(RenderThreadFunction, std::ref(AtomicScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
     while (true) 
     {
         InputMutex.lock();

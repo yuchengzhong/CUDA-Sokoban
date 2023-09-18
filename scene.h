@@ -25,7 +25,7 @@ using namespace std;
 #define SOKOBAN_ACTIVE 1
 struct Actor 
 {
-	int ActorType;
+	int ActorType = -1;
 	int ActorState = 0;
 	int3 Location;
 	int3 Rotation;
@@ -40,6 +40,7 @@ struct RenderData
 	float3 Offset;
 };
 
+// Deprecated
 class Scene
 {
 public:
