@@ -1,10 +1,56 @@
 #pragma once
 #include "scene.h"
 #include "math.cuh"
+#include <string>
 
 #define ATOMIC_MAX_BLOCKS 16*16*16
 #define ATOMIC_MAX_ACTORS 64
+#define ATOMIC_MAX_STEP 256
 
+
+struct ATOMIC_Steps
+{
+public:
+    int2 Step[ATOMIC_MAX_STEP];
+    int StepCount = 0;
+    __host__ __device__ bool AddStep(int2 Position)
+    {
+        if (StepCount < ATOMIC_MAX_STEP)
+        {
+            Step[StepCount] = Position;
+            StepCount++;
+            return true;
+        }
+        return false;
+    }
+    __host__ __device__ static ATOMIC_Steps GetEmptyStep()
+    {
+        ATOMIC_Steps Result;
+        Result.Step[0] = { 0,0 };
+        return Result;
+    }
+    __host__ __device__ static int2 GetStepByIndex(int i)
+    {
+        int2 Step = { 0,0 };
+        if (i == 0)
+        {
+            Step = { 1,0 };
+        }
+        else if (i == 1)
+        {
+            Step = { -1,0 };
+        }
+        else if (i == 2)
+        {
+            Step = { 0,1 };
+        }
+        else if (i == 3)
+        {
+            Step = { 0,-1 };
+        }
+        return Step;
+    }
+};
 
 struct ATOMIC_Scene
 {
@@ -81,6 +127,10 @@ public:
     }
     __host__ __device__ bool MovePlayer(int2 Move)
     {
+        if (Move.x == 0 && Move.y == 0)
+        {
+            return false;
+        }
         if (abs(Move.x) == abs(Move.y) && abs(Move.x) == 1)
         {
             Move.y = 0;
@@ -276,6 +326,84 @@ public:
         for (int i = 0; i < SceneState1.ActorCount; i++)
         {
             if (SceneState1.Actors[i] != SceneState2.Actors[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    void Debug()
+    {
+        for (int z = 0; z < SceneSize.z; z++)
+        {
+            for (int y = 0; y < SceneSize.y; y++)
+            {
+                for (int x = 0; x < SceneSize.x; x++)
+                {
+                    int Index = x + y * SceneSize.x + z * SceneSize.x * SceneSize.y;
+                    printf("%d ", SceneBlock[Index]);
+                }
+                printf("\n");
+            }
+            printf("\n");
+        }
+        for (int i = 0; i < ActorCount; i++)
+        {
+            Actor CurrentActor = Actors[i];
+            std::string ActorName = "Not Defined";
+            if (CurrentActor.ActorType == SOKOBAN_PLAYER_START)
+            {
+                ActorName = "SOKOBAN_PLAYER_START";
+            }
+            else if (CurrentActor.ActorType == SOKOBAN_PLAYER)
+            {
+                ActorName = "SOKOBAN_PLAYER";
+            }
+            else if (CurrentActor.ActorType == SOKOBAN_BOX)
+            {
+                ActorName = "SOKOBAN_BOX";
+            }
+            else if (CurrentActor.ActorType == SOKOBAN_BOX_TARGET)
+            {
+                ActorName = "SOKOBAN_BOX_TARGET";
+            }
+            printf("%s:id-%d, state-%d, loc-(%d,%d,%d)\n", ActorName.c_str(), CurrentActor.Id, CurrentActor.ActorState, 
+                CurrentActor.Location.x, CurrentActor.Location.y, CurrentActor.Location.z);
+        }
+    }
+
+    __host__ __device__ inline bool operator==(const ATOMIC_Scene& other) const
+    {
+        if (SceneSize != other.SceneSize || ActorCount != other.ActorCount)
+        {
+            return false;
+        }
+        for (int i = 0; i < ATOMIC_MAX_BLOCKS; ++i)
+        {
+            if (SceneBlock[i] != other.SceneBlock[i])
+            {
+                return false;
+            }
+        }
+
+        for (int i = 0; i < ATOMIC_MAX_ACTORS; ++i)
+        {
+            if (Actors[i] != other.Actors[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+    __host__ __device__ inline bool operator%=(const ATOMIC_Scene& other) const
+    {
+        if (SceneSize != other.SceneSize || ActorCount != other.ActorCount)
+        {
+            return false;
+        }
+        for (int i = 0; i < ATOMIC_MAX_ACTORS; ++i)
+        {
+            if (Actors[i] != other.Actors[i])
             {
                 return false;
             }

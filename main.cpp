@@ -38,6 +38,7 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
         bool Changed = CurrentScene.MovePlayer(PlayerInput);
         if (Changed)
         {
+            printf("Moved:%d,%d\n", PlayerInput.x, PlayerInput.y);
             CurrentScene.UpdatePhysics();
             if (CurrentScene.bIsWin())
             {
@@ -49,7 +50,7 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
         SceneMutex.lock();
         vector<float3> ImageBuffer = Launch_RenderScene(CurrentScene.GetRenderData(), SceneSize, { ImageSizeW , ImageSizeH }, Time);
         CopyBufferToHDC(TempDC, ImageBuffer, ImageSizeW, ImageSizeH);
-        BitBlt(TargetHDC, 0, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
+        BitBlt(TargetHDC, 512, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
         SceneMutex.unlock();
 
         InputMutex.lock();
@@ -120,6 +121,10 @@ int main()
 
     ATOMIC_Scene AtomicScene;
     AtomicScene.InitialFromScene(TestScene);
+    //AtomicScene.Debug();
+
+    vector<ATOMIC_Steps> Steps = CPU_Solver::Solve(AtomicScene);
+    printf("All Possible: %zd\n", Steps.size());
     /*
     while (true)
     {
