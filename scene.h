@@ -10,12 +10,19 @@ using namespace std;
 #define SOKOBAN_PLAYER_START 2
 #define SOKOBAN_PLAYER 3
 #define SOKOBAN_BOX 4
+#define SOKOBAN_BOX_TARGET 5
 
-#define SOKOBAN_WALL_COLOR {210.0f/255.0f, 180.0f/255.0f, 140.0f/255.0f}
-#define SOKOBAN_PLAYER_START_COLOR {238.0f/255.0f, 130.0f/255.0f, 238.0f/255.0f}
-#define SOKOBAN_PLAYER_COLOR {65.0f/255.0f, 105.0f/255.0f, 255.0f/255.0f}
-#define SOKOBAN_BOX_COLOR {205.0f/255.0f, 133.0f/255.0f, 63.0f/255.0f}
+#define SOKOBAN_WALL_COLOR float3{210.0f/255.0f, 180.0f/255.0f, 140.0f/255.0f}
+#define SOKOBAN_PLAYER_START_COLOR float3{238.0f/255.0f, 130.0f/255.0f, 238.0f/255.0f}
+#define SOKOBAN_PLAYER_COLOR float3{65.0f/255.0f, 105.0f/255.0f, 255.0f/255.0f}
 
+#define SOKOBAN_BOX_COLOR float3{205.0f/255.0f, 133.0f/255.0f, 63.0f/255.0f}
+#define SOKOBAN_BOX_COLOR_ACTIVE float3{124.0f/255.0f, 252.0f/255.0f, 0.0f/255.0f}
+
+#define SOKOBAN_BOX_TARGET_COLOR float3{173.0f/255.0f, 255.0f/255.0f, 47.0f/255.0f}
+
+#define SOKOBAN_INACTIVE 0
+#define SOKOBAN_ACTIVE 1
 struct Actor 
 {
 	int ActorType;
@@ -55,10 +62,9 @@ public:
 		{
 			for (auto& CurrentActor : Actors)
 			{
-				if (CurrentActor.ActorType == SOKOBAN_PLAYER_START && CurrentActor.ActorState == 0)
+				if (CurrentActor.ActorType == SOKOBAN_PLAYER_START && CurrentActor.ActorState == Actor.ActorState)
 				{
 					Actor.Location = CurrentActor.Location;
-					CurrentActor.ActorState = 1;
 				}
 			}
 		}
@@ -135,6 +141,39 @@ public:
 		}
 		return false;
 	}
+	void UpdatePhysics()
+	{
+		//Do physics
+
+		//Do after physics
+
+		//Find box
+		for (auto& ActorW : Actors)
+		{
+			if (ActorW.ActorType == SOKOBAN_BOX)
+			{
+				int3 BoxPosition = ActorW.Location;
+
+				for (auto& ActorW2 : Actors)
+				{
+					if (ActorW2.ActorType == SOKOBAN_BOX_TARGET)
+					{
+						int3 TargetPosition = ActorW2.Location;
+						if (TargetPosition == BoxPosition)
+						{
+							ActorW.ActorState = SOKOBAN_ACTIVE;
+							goto FOR_ELSE;
+						}
+					}
+				}
+				ActorW.ActorState = SOKOBAN_INACTIVE;
+				FOR_ELSE:
+				{
+					continue;
+				}
+			}
+		}
+	}
 	vector<RenderData> GetRenderData()
 	{
 		vector<RenderData> Result;
@@ -155,13 +194,14 @@ public:
 		}
 		for (auto& Actor : Actors)
 		{
-			uint8_t ActorsType = Actor.ActorType;
+			int ActorsType = Actor.ActorType;
+			int ActorsState = Actor.ActorState;
 			int x = Actor.Location.x;
 			int y = Actor.Location.y;
 			int z = Actor.Location.z;
 			if (ActorsType == SOKOBAN_PLAYER_START)
 			{
-				Result.push_back({ {x,y,z},SOKOBAN_PLAYER_START_COLOR , {1.0f,0.5f,1.0f}, {0.0f,0.5f,0.0f} });
+				Result.push_back({ {x,y,z},SOKOBAN_PLAYER_START_COLOR , {1.0f,0.125f,1.0f}, {0.0f,0.5f-0.0625f,0.0f} });
 			}
 			else if (ActorsType == SOKOBAN_PLAYER)
 			{
@@ -169,7 +209,11 @@ public:
 			}
 			else if (ActorsType == SOKOBAN_BOX)
 			{
-				Result.push_back({ {x,y,z},SOKOBAN_BOX_COLOR , {0.95f,0.95f,0.95f}, {0.0f,0.025f,0.0f} });
+				Result.push_back({ {x,y,z}, (ActorsState == 0 ? SOKOBAN_BOX_COLOR : SOKOBAN_BOX_COLOR_ACTIVE) , {0.95f,0.95f,0.95f}, {0.0f,0.025f,0.0f} });
+			}
+			else if (ActorsType == SOKOBAN_BOX_TARGET)
+			{
+				Result.push_back({ {x,y,z},SOKOBAN_BOX_TARGET_COLOR , {1.0f,0.125f,1.0f}, {0.0f,0.5f - 0.0625f,0.0f} });
 			}
 		}
 		return Result;

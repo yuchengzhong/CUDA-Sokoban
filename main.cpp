@@ -34,7 +34,11 @@ void RenderThreadFunction(Scene& CurrentScene, int3 SceneSize, int ImageSizeW, i
     while (true) 
     {
         SceneMutex.lock();
-        CurrentScene.MovePlayer(PlayerInput);
+        bool Changed = CurrentScene.MovePlayer(PlayerInput);
+        if (Changed)
+        {
+            CurrentScene.UpdatePhysics();
+        }
         SceneMutex.unlock();
 
         SceneMutex.lock();
@@ -106,6 +110,8 @@ int main()
     TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, {-1,-1,-1} });
     TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, {-1,-1,-1} });
     TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, {-1,-1,-1} });
     /*
     while (true)
     {
