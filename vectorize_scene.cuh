@@ -75,7 +75,7 @@ public:
         ActorCount = 0;
     }
 
-    __host__ __device__ bool PositionOutOfBound(int3 Position) const
+    __host__ __device__ bool bIsPositionOutOfBound(int3 Position) const
     {
         return Position.x < 0 || Position.x >= SceneSize.x || Position.y < 0 || Position.y >= SceneSize.y || Position.z < 0 || Position.z >= SceneSize.z;
     }
@@ -92,7 +92,7 @@ public:
             if (ActorsType == SOKOBAN_PLAYER)
             {
                 int3 NewPosition = { CurrentActor.Location.x + Move.x, CurrentActor.Location.y + Move.y, CurrentActor.Location.z };
-                if (PositionOutOfBound(NewPosition))
+                if (bIsPositionOutOfBound(NewPosition))
                 {
                     return false;
                 }
@@ -111,7 +111,7 @@ public:
                         {
                             int BoxId = ActorW.Id;
                             int3 BoxNewPosition = { ActorW.Location.x + Move.x, ActorW.Location.y + Move.y, ActorW.Location.z };
-                            if (PositionOutOfBound(BoxNewPosition))
+                            if (bIsPositionOutOfBound(BoxNewPosition))
                             {
                                 return false;
                             }
@@ -188,6 +188,21 @@ public:
             }
         }
     }
+    __host__ __device__ bool bIsWin() const
+    {
+        for (int i = 0; i < ActorCount; i++)
+        {
+            const Actor& ActorW = Actors[i];
+            if (ActorW.ActorType == SOKOBAN_BOX)
+            {
+                if (ActorW.ActorState == SOKOBAN_INACTIVE)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
     vector<RenderData> GetRenderData() const
     {
         vector<RenderData> Result;
@@ -234,7 +249,7 @@ public:
         //printf("Atomic\n");
         return Result;
     }
-    __host__ __device__ static bool Same(const ATOMIC_Scene& SceneState1, const ATOMIC_Scene& SceneState2)
+    __host__ __device__ static bool bIsSame(const ATOMIC_Scene& SceneState1, const ATOMIC_Scene& SceneState2)
     {
         if (SceneState1.SceneSize != SceneState2.SceneSize)
         {

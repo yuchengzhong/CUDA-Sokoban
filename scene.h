@@ -62,7 +62,13 @@ struct RenderData
 	float3 Offset = SOKOBAN_DEFAULT_FLOAT3;
 };
 
-// Deprecated
+
+
+
+// Deprecated!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Deprecated!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Deprecated!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Deprecated!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 class Scene
 {
 public:

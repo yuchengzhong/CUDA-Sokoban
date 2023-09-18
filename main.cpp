@@ -39,6 +39,10 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
         if (Changed)
         {
             CurrentScene.UpdatePhysics();
+            if (CurrentScene.bIsWin())
+            {
+                printf("Win\n");
+            }
         }
         SceneMutex.unlock();
 
