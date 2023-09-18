@@ -21,23 +21,45 @@ using namespace std;
 
 #define SOKOBAN_BOX_TARGET_COLOR float3{173.0f/255.0f, 255.0f/255.0f, 47.0f/255.0f}
 
+#define SOKOBAN_ERROR_COLOR float3{255.0f/255.0f, 255.0f/255.0f, 0.0f/255.0f}
+
+#define SOKOBAN_DEFAULT_INT3 int3{ -999,-999,-999 }
+#define SOKOBAN_DEFAULT_FLOAT3 float3{ -999.0f,-999.0f,-999.0f }
+
 #define SOKOBAN_INACTIVE 0
 #define SOKOBAN_ACTIVE 1
-struct Actor 
+struct Actor
 {
 	int ActorType = -1;
 	int ActorState = 0;
-	int3 Location;
-	int3 Rotation;
+	int3 Location = SOKOBAN_DEFAULT_INT3;
+	int3 Rotation = SOKOBAN_DEFAULT_INT3;
 	int Id = -1;
+
+	__host__ __device__ inline bool operator!=(const Actor& ActorOther) const
+	{
+		return (ActorOther.ActorType != ActorType) ||
+			(ActorOther.ActorState != ActorState) ||
+			(ActorOther.Location != Location) ||
+			(ActorOther.Rotation != Rotation) ||
+			(ActorOther.Id != Id);
+	}
+	__host__ __device__ inline bool operator==(const Actor& ActorOther) const
+	{
+		return (ActorOther.ActorType == ActorType) &&
+			(ActorOther.ActorState == ActorState) &&
+			(ActorOther.Location == Location) &&
+			(ActorOther.Rotation == Rotation) &&
+			(ActorOther.Id == Id);
+	}
 };
 
 struct RenderData
 {
-	int3 Location;
-	float3 TypeColor;
-	float3 Scale;
-	float3 Offset;
+	int3 Location = SOKOBAN_DEFAULT_INT3;
+	float3 TypeColor = SOKOBAN_ERROR_COLOR;
+	float3 Scale = SOKOBAN_DEFAULT_FLOAT3;
+	float3 Offset = SOKOBAN_DEFAULT_FLOAT3;
 };
 
 // Deprecated

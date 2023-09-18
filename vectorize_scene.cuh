@@ -1,17 +1,20 @@
 #pragma once
 #include "scene.h"
+#include "math.cuh"
 
 #define ATOMIC_MAX_BLOCKS 16*16*16
 #define ATOMIC_MAX_ACTORS 64
+
+
 struct ATOMIC_Scene
 {
 public:
     uint8_t SceneBlock[ATOMIC_MAX_BLOCKS];
     Actor Actors[ATOMIC_MAX_ACTORS];
-    int3 SceneSize;
-    int ActorCount;
+    int3 SceneSize = {0,0,0};
+    int ActorCount = 0;
 
-    bool InitialFromScene(const Scene& SourceScene)
+    __host__ bool InitialFromScene(const Scene& SourceScene)
     {
         if (SourceScene.SceneBlock.size() > ATOMIC_MAX_BLOCKS)
         {
@@ -34,7 +37,7 @@ public:
         return true;
     }
 
-    bool SetupScene(const vector<uint8_t>& SceneBlock_, const vector<Actor>& Actors_, int3 SceneSize_)
+    __host__ bool SetupScene(const vector<uint8_t>& SceneBlock_, const vector<Actor>& Actors_, int3 SceneSize_)
     {
         assert(SceneBlock_.size() == SceneSize_.x * SceneSize_.y * SceneSize_.z);
         if (SceneBlock_.size() > ATOMIC_MAX_BLOCKS)
@@ -57,7 +60,7 @@ public:
         }
         return true;
     }
-    void Reset()
+    __host__ void Reset()
     {
         for (int i = 0; i < ATOMIC_MAX_BLOCKS; i++)
         {
@@ -185,7 +188,7 @@ public:
             }
         }
     }
-    vector<RenderData> GetRenderData()
+    vector<RenderData> GetRenderData() const
     {
         vector<RenderData> Result;
         for (int x = 0; x < SceneSize.x; x++)
@@ -231,4 +234,40 @@ public:
         //printf("Atomic\n");
         return Result;
     }
+    __host__ __device__ static bool Same(const ATOMIC_Scene& SceneState1, const ATOMIC_Scene& SceneState2)
+    {
+        if (SceneState1.SceneSize != SceneState2.SceneSize)
+        {
+            return false;
+        }
+        for (int x = 0; x < SceneState1.SceneSize.x; x++)
+        {
+            for (int y = 0; y < SceneState1.SceneSize.y; y++)
+            {
+                for (int z = 0; z < SceneState1.SceneSize.z; z++)
+                {
+                    int Index = x + y * SceneState1.SceneSize.x + z * SceneState1.SceneSize.x * SceneState1.SceneSize.y;
+                    if (SceneState1.SceneBlock[Index] != SceneState2.SceneBlock[Index])
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
+        if (SceneState1.ActorCount != SceneState2.ActorCount)
+        {
+            return false;
+        }
+        for (int i = 0; i < SceneState1.ActorCount; i++)
+        {
+            if (SceneState1.Actors[i] != SceneState2.Actors[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
 };
+//TODO:
+//out ATOMIC_Scene[N], bool[N], in ATOMIC_Scene[N], int2 Moves[N]
+//out ATOMIC_Scene[N], bool[N], in ATOMIC_Scene[M], int2 Moves[N], int MoveOnIndex[N] # ATOMIC_Scenes[MoveOnIndex[i]]
