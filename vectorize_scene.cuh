@@ -372,15 +372,15 @@ public:
         }
     }
 
-    __host__ __device__ inline bool operator==(const ATOMIC_Scene& other) const
+    __host__ __device__ inline bool operator==(const ATOMIC_Scene& Other) const
     {
-        if (SceneSize != other.SceneSize || ActorCount != other.ActorCount)
+        if (SceneSize != Other.SceneSize || ActorCount != Other.ActorCount)
         {
             return false;
         }
         for (int i = 0; i < ATOMIC_MAX_BLOCKS; ++i)
         {
-            if (SceneBlock[i] != other.SceneBlock[i])
+            if (SceneBlock[i] != Other.SceneBlock[i])
             {
                 return false;
             }
@@ -388,27 +388,68 @@ public:
 
         for (int i = 0; i < ATOMIC_MAX_ACTORS; ++i)
         {
-            if (Actors[i] != other.Actors[i])
+            if (Actors[i] != Other.Actors[i])
             {
                 return false;
             }
         }
         return true;
     }
-    __host__ __device__ inline bool operator%=(const ATOMIC_Scene& other) const
+    __host__ __device__ inline bool operator%=(const ATOMIC_Scene& Other) const
     {
-        if (SceneSize != other.SceneSize || ActorCount != other.ActorCount)
+        if (SceneSize != Other.SceneSize || ActorCount != Other.ActorCount)
         {
             return false;
         }
         for (int i = 0; i < ATOMIC_MAX_ACTORS; ++i)
         {
-            if (Actors[i] != other.Actors[i])
+            if (Actors[i] != Other.Actors[i])
             {
                 return false;
             }
         }
         return true;
+    }
+    __host__ __device__ bool operator<(const ATOMIC_Scene& Other) const 
+    {
+        if (SceneSize.x != Other.SceneSize.x)
+        {
+            return SceneSize.x < Other.SceneSize.x;
+        }
+        if (SceneSize.y != Other.SceneSize.y)
+        {
+            return SceneSize.y < Other.SceneSize.y;
+        }
+        if (SceneSize.z != Other.SceneSize.z)
+        {
+            return SceneSize.z < Other.SceneSize.z;
+        }
+        if (ActorCount != Other.ActorCount)
+        {
+            return ActorCount < Other.ActorCount;
+        }
+        for (int x = 0; x < SceneSize.x; x++)
+        {
+            for (int y = 0; y < SceneSize.y; y++)
+            {
+                for (int z = 0; z < SceneSize.z; z++)
+                {
+                    int Index = x + y * SceneSize.x + z * SceneSize.x * SceneSize.y;
+                    if (SceneBlock[Index] != Other.SceneBlock[Index])
+                    {
+                        return SceneBlock[Index] < Other.SceneBlock[Index];
+                    }
+                }
+            }
+        }
+        for (int j = 0; j < ActorCount; j++)
+        {
+            if (Actors[j] != Other.Actors[j])
+            {
+                return Actors[j] < Other.Actors[j];
+            }
+        }
+        return false;
     }
 };
 //TODO:

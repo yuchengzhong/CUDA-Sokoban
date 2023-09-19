@@ -6,6 +6,10 @@
 #include "scene.h"
 #include "vectorize_scene.cuh"
 #include "math.cuh"
+
+#include <thrust/device_vector.h>
+#include <thrust/copy.h>
+#include <thrust/reduce.h>
 const int N = 1024;
 
 __global__ void RenderScene_UV(const RenderData* SceneData, int NumData, float3* Out_Buffer, int2 OutBufferSize, float Time);
@@ -13,23 +17,13 @@ __global__ void RenderScene(const RenderData* SceneData, int NumData, int3 Scene
 
 vector<float3> Launch_RenderScene(const vector<RenderData>& SceneData, int3 SceneSize, int2 BufferSize, float Time);
 
-
-
-//BFS
-/*
-States[]
-while States not empty do:
-    NewState[] # len(NewState) = 4.0 * len(States)
-    NewStateValid[] # len(NewStateValid) = 4.0 * len(States)
-    do in every thread t:
-        for i, CurrentMoveStep in AllMovement: # AllMovement: up down left right
-            Valid, CandidateState = States[t].Move(CurrentMoveStep)
-            NewState[i + 4*t] = CandidateState
-            NewStateValid[i + 4*t] = Valid
-    NewStateValid <- scan: NewStateValid[Valid]
-    States <- remove_duplicate: NewStateValid
-
-*/
+struct ATOMIC_SolverState
+{
+    ATOMIC_Scene SceneState;
+    ATOMIC_Steps StepState;
+    bool WinState = false;
+    bool ValidState = false;
+};
 struct CPU_Solver
 {
 public:
@@ -46,89 +40,120 @@ public:
         }
         return Result;
     }
-    template<typename T>
-    static bool Find(const vector<T>& Array, const T& ItemToFind)
+    static vector<ATOMIC_SolverState> Scan(const vector<ATOMIC_SolverState> ScanArray)
+    {
+        vector<ATOMIC_SolverState> Result;
+        for (int i=0;i< ScanArray.size();i++)
+        {
+            if (ScanArray[i].ValidState)
+            {
+                Result.push_back(ScanArray[i]);
+            }
+        }
+        return Result;
+    }
+    static bool Any(const vector<bool>& Array)
     {
         for (int i=0;i< Array.size();i++)
         {
-            if (Array[i] %= ItemToFind)
+            if (Array[i])
             {
                 return true;
             }
         }
         return false;
     }
-
-    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene)
-	{
-        vector<ATOMIC_Scene> AllStates;
-        vector<ATOMIC_Steps> AllSteps;
-        vector<bool> AllWins;
-
-		vector<ATOMIC_Scene> States;
-		vector<ATOMIC_Steps> Steps;
-        States.push_back(InitialScene);
-        Steps.push_back(ATOMIC_Steps::GetEmptyStep());
-        int IterIndex = 0;
-        while (States.size() > 0)
+    static bool Find(const vector<ATOMIC_SolverState>& Array, const ATOMIC_Scene& ItemToFind)
+    {
+        for (int i = 0; i < Array.size(); i++)
         {
-            cout << "IterIndex:" << IterIndex << "\n";
-            vector<ATOMIC_Scene> NewStates(States.size() * 4);
-            vector<ATOMIC_Steps> NewSteps(States.size() * 4);
-            vector<bool> NewWins(States.size() * 4);
-            vector<bool> ValidStates(States.size() * 4);
-            for (int t = 0; t < States.size(); t++) //Thread
+            if (Array[i].SceneState %= ItemToFind)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    static bool Any(const vector<ATOMIC_SolverState>& Array)
+    {
+        for (int i=0;i< Array.size();i++)
+        {
+            if (Array[i].WinState)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    static vector<ATOMIC_Steps> Scan_SolverState(const vector<ATOMIC_SolverState> ScanArray)
+    {
+        vector<ATOMIC_Steps> Result;
+        for (int i = 0; i < ScanArray.size(); i++)
+        {
+            if (ScanArray[i].WinState)
+            {
+                Result.push_back(ScanArray[i].StepState);
+            }
+        }
+        return Result;
+    }
+    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly)
+	{
+        vector<ATOMIC_SolverState> AllSolverStates;
+
+		vector<ATOMIC_SolverState> SolverStates;
+        SolverStates.push_back(ATOMIC_SolverState{ InitialScene, ATOMIC_Steps::GetEmptyStep(), false });
+        int IterIndex = 0;
+        while (SolverStates.size() > 0)
+        {
+            vector<ATOMIC_SolverState> NewSolverStates(SolverStates.size() * 4);
+            for (int t = 0; t < SolverStates.size(); t++) //Thread
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    ATOMIC_Scene Candidate = States[t];
+                    ATOMIC_SolverState Candidate = SolverStates[t];
                     int2 CurrentMoveStep = ATOMIC_Steps::GetStepByIndex(i);
-                    //cout << "CurrentMoveStep:" << CurrentMoveStep.x << "," << CurrentMoveStep.y << "\n";
-                    bool bMoveValid = Candidate.MovePlayer(CurrentMoveStep);
-                    Candidate.UpdatePhysics();
-                    bool bWin = Candidate.bIsWin();
+                    bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
+                    Candidate.SceneState.UpdatePhysics();
 
-                    //cout << "bMoveValid:" << bMoveValid << "\n";
-                    ATOMIC_Steps CurrentSteps = Steps[t];
-                    CurrentSteps.AddStep(CurrentMoveStep);
+                    Candidate.StepState.AddStep(CurrentMoveStep);
 
-                    ValidStates[i + 4 * t] = bMoveValid;
-                    NewWins[i + 4 * t] = bWin;
-                    NewStates[i + 4 * t] = Candidate;
-                    NewSteps[i + 4 * t] = CurrentSteps;
+                    Candidate.WinState = Candidate.SceneState.bIsWin();
+                    Candidate.ValidState = bMoveValid;
+                    NewSolverStates[i + 4 * t] = Candidate;
                 }
             }
             //Scan
-            vector<ATOMIC_Scene> DuplicatedStates = Scan(NewStates, ValidStates);
-            vector<ATOMIC_Steps> DuplicatedSteps = Scan(NewSteps, ValidStates);
-            vector<bool> DuplicatedWins = Scan(NewWins, ValidStates);
-            cout << "DuplicatedStates:" << DuplicatedStates.size() << "\n";
-            //Remove Duplicate
-            vector<ATOMIC_Scene> NonDuplicatedStates;
-            vector<ATOMIC_Steps> NonDuplicatedSteps;
-            vector<bool> NonDuplicatedWins;
-            for (int i = 0; i < DuplicatedStates.size(); i++)
+            vector<ATOMIC_SolverState> DuplicatedSolverStates = Scan(NewSolverStates);
+            //cout << DuplicatedSolverStates.size() << "\n";
+            //Remove Duplicate SolverState which has same ATOMIC_Scene
+            vector<ATOMIC_SolverState> NonDuplicatedSolverStates;
+            for (int i = 0; i < DuplicatedSolverStates.size(); i++)
             {
-                if (!Find(AllStates, DuplicatedStates[i]))
+                if (!Find(AllSolverStates, DuplicatedSolverStates[i].SceneState))
                 {
-                    NonDuplicatedStates.push_back(DuplicatedStates[i]);
-                    NonDuplicatedSteps.push_back(DuplicatedSteps[i]);
-                    NonDuplicatedWins.push_back(DuplicatedWins[i]);
-                    AllStates.push_back(DuplicatedStates[i]);
-                    AllSteps.push_back(DuplicatedSteps[i]);
-                    AllWins.push_back(DuplicatedWins[i]);
+                    NonDuplicatedSolverStates.push_back(DuplicatedSolverStates[i]);
+                    AllSolverStates.push_back(DuplicatedSolverStates[i]);
                 }
             }
-            cout << "NonDuplicatedStates:" << NonDuplicatedStates.size() << "\n";
-            States = NonDuplicatedStates;
-            Steps = NonDuplicatedSteps;
+            SolverStates = NonDuplicatedSolverStates;
             IterIndex++;
-            cout << "\n";
-            cout << "\n";
+            if (ShortestOnly && Any(SolverStates))
+            {
+                break;
+            }
         }
-        cout << "AllSteps:" << AllSteps.size() << "\n";
-
-        vector<ATOMIC_Steps> WinSteps = Scan(AllSteps, AllWins);
+        vector<ATOMIC_Steps> WinSteps = Scan_SolverState(AllSolverStates);
         return WinSteps;
 	}
+};
+
+
+__global__ void GenerateSolverStates(const ATOMIC_SolverState* d_SolverStates, int StatesSize, ATOMIC_SolverState* d_NewSolverStates);
+
+thrust::device_vector<ATOMIC_SolverState> Scan(const thrust::device_vector<ATOMIC_SolverState>& NewSolverStates);
+struct GPU_Solver
+{
+public:
+    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly);
 };

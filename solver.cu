@@ -1,5 +1,6 @@
 #include "solver.cuh"
-
+#include <thrust/sort.h>
+#include <thrust/unique.h>
 __device__ float4 iBox(float3 ro, float3 rd, float3 rad, float3 bo, float3& LocalPosition) //return nor, tn
 {
     //vec3 rdd = (txx * vec4(rd, 0.0)).xyz;  // txx the W2O
@@ -156,4 +157,138 @@ vector<float3> Launch_RenderScene(const vector<RenderData>& SceneData, int3 Scen
     cudaFree(Device_OutBuffer);
 
     return Result;
+}
+__global__ void GenerateSolverStates(const ATOMIC_SolverState* d_SolverStates, int StatesSize, ATOMIC_SolverState* d_NewSolverStates) 
+{
+    int t = threadIdx.x + blockIdx.x * blockDim.x;
+    if (t < StatesSize)
+    {
+        for (int i = 0; i < 4; i++) 
+        {
+            ATOMIC_SolverState Candidate = d_SolverStates[t];
+            int2 CurrentMoveStep = ATOMIC_Steps::GetStepByIndex(i);
+
+            bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
+            Candidate.SceneState.UpdatePhysics();
+            Candidate.StepState.AddStep(CurrentMoveStep);
+            Candidate.WinState = Candidate.SceneState.bIsWin();
+            Candidate.ValidState = bMoveValid;
+            d_NewSolverStates[i + 4 * t] = Candidate;
+        }
+    }
+}
+
+//Scan
+struct IsSolverStateValid
+{
+    __device__ bool operator()(ATOMIC_SolverState State) const
+    {
+        return State.ValidState;
+    }
+};
+thrust::device_vector<ATOMIC_SolverState> Scan(const thrust::device_vector<ATOMIC_SolverState>& NewSolverStates)
+{
+    thrust::device_vector<ATOMIC_SolverState> DuplicatedSolverStates(NewSolverStates.size());
+    auto End = thrust::copy_if
+    (
+        NewSolverStates.begin(),
+        NewSolverStates.end(),
+        DuplicatedSolverStates.begin(),
+        IsSolverStateValid()
+    );
+    DuplicatedSolverStates.resize(thrust::distance(DuplicatedSolverStates.begin(), End));
+    return DuplicatedSolverStates;
+}
+
+//RemoveDuplicate
+struct CompareSceneState
+{
+    __device__ bool operator()(const ATOMIC_SolverState& L, const ATOMIC_SolverState& R) const
+    {
+        return L.SceneState < R.SceneState;
+    }
+};
+thrust::device_vector<ATOMIC_SolverState> RemoveDuplicateSceneState(const thrust::device_vector<ATOMIC_SolverState>& DuplicatedSolverStates)
+{
+    thrust::device_vector<ATOMIC_SolverState> Result = DuplicatedSolverStates; // Create a copy as the input is const
+    thrust::sort(Result.begin(), Result.end(), CompareSceneState());
+
+    //auto new_end = thrust::unique(result.begin(), result.end(), equal_scene_state());
+    //result.resize(new_end - result.begin());
+    return Result;
+}
+/*
+    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly)
+    {
+        vector<ATOMIC_SolverState> AllSolverStates;
+
+        vector<ATOMIC_SolverState> SolverStates;
+        SolverStates.push_back(ATOMIC_SolverState{ InitialScene, ATOMIC_Steps::GetEmptyStep(), false });
+        int IterIndex = 0;
+        while (SolverStates.size() > 0)
+        {
+            vector<ATOMIC_SolverState> NewSolverStates(SolverStates.size() * 4);
+            for (int t = 0; t < SolverStates.size(); t++) //Thread
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    ATOMIC_SolverState Candidate = SolverStates[t];
+                    int2 CurrentMoveStep = ATOMIC_Steps::GetStepByIndex(i);
+                    bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
+                    Candidate.SceneState.UpdatePhysics();
+
+                    Candidate.StepState.AddStep(CurrentMoveStep);
+
+                    Candidate.WinState = Candidate.SceneState.bIsWin();
+                    Candidate.ValidState = bMoveValid;
+                    NewSolverStates[i + 4 * t] = Candidate;
+                }
+            }
+            //Scan
+            vector<ATOMIC_SolverState> DuplicatedSolverStates = Scan(NewSolverStates);
+            //Remove Duplicate SolverState which has same ATOMIC_Scene
+            vector<ATOMIC_SolverState> NonDuplicatedSolverStates;
+            for (int i = 0; i < DuplicatedSolverStates.size(); i++)
+            {
+                if (!Find(AllSolverStates, DuplicatedSolverStates[i].SceneState))
+                {
+                    NonDuplicatedSolverStates.push_back(DuplicatedSolverStates[i]);
+                    AllSolverStates.push_back(DuplicatedSolverStates[i]);
+                }
+            }
+            SolverStates = NonDuplicatedSolverStates;
+            IterIndex++;
+            if (ShortestOnly && Any(SolverStates))
+            {
+                break;
+            }
+        }
+        vector<ATOMIC_Steps> WinSteps = Scan_SolverState(AllSolverStates);
+        return WinSteps;
+    }
+*/
+vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly)
+{
+    const int ThreadsPerBlock = 32;
+
+    thrust::device_vector<ATOMIC_SolverState> AllSolverStates;
+    //
+    thrust::device_vector<ATOMIC_SolverState> SolverStates(1);
+    SolverStates[0] = ATOMIC_SolverState{ InitialScene, ATOMIC_Steps::GetEmptyStep(), false };
+    int IterIndex = 0;
+    //while (SolverStates.size() > 0)
+    for(int i=0;i<5;i++)
+    {
+        size_t StatesSize = SolverStates.size();
+        thrust::device_vector<ATOMIC_SolverState> NewSolverStates;
+        NewSolverStates.resize(StatesSize);
+
+        size_t Blocks = (StatesSize + ThreadsPerBlock - 1) / ThreadsPerBlock;
+        GenerateSolverStates << <Blocks, ThreadsPerBlock >> > (thrust::raw_pointer_cast(SolverStates.data()), static_cast<int>(StatesSize), thrust::raw_pointer_cast(NewSolverStates.data()));
+        //Scan
+        thrust::device_vector<ATOMIC_SolverState> DuplicatedSolverStates = Scan(NewSolverStates);
+        //cout << DuplicatedSolverStates.size() << "\n";
+    }
+    //vector<ATOMIC_Steps> WinSteps = Scan_SolverState(AllSolverStates);
+    return {};
 }

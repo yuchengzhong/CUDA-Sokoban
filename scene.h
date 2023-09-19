@@ -52,6 +52,38 @@ struct Actor
 			(ActorOther.Rotation == Rotation) &&
 			(ActorOther.Id == Id);
 	}
+	__host__ __device__ bool operator<(const Actor& Other) const
+	{
+		if (ActorType != Other.ActorType) return ActorType < Other.ActorType;
+		if (ActorState != Other.ActorState) return ActorState < Other.ActorState;
+
+		if (Location.x != Other.Location.x)
+		{
+			return Location.x < Other.Location.x;
+		}
+		if (Location.y != Other.Location.y)
+		{
+			return Location.y < Other.Location.y;
+		}
+		if (Location.z != Other.Location.z)
+		{
+			return Location.z < Other.Location.z;
+		}
+
+		if (Rotation.x != Other.Rotation.x)
+		{
+			return Rotation.x < Other.Rotation.x;
+		}
+		if (Rotation.y != Other.Rotation.y)
+		{
+			return Rotation.y < Other.Rotation.y;
+		}
+		if (Rotation.z != Other.Rotation.z)
+		{
+			return Rotation.z < Other.Rotation.z;
+		}
+		return Id < Other.Id;
+	}
 };
 
 struct RenderData

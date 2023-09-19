@@ -3,7 +3,6 @@
 #include <windows.h>
 #include <solver.cuh>
 #include "scene.h"
-using namespace std;
 
 #include <windows.h>
 
@@ -11,10 +10,14 @@ using namespace std;
 #include <mutex>
 #include "math.cuh"
 #include "vectorize_scene.cuh"
+using namespace std;
 
 std::mutex SceneMutex;
 std::mutex InputMutex;
 int2 PlayerInput = {0,0};
+
+vector<ATOMIC_Steps> AutoMoves;
+int CurrentMove = 0;
 void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int ImageSizeW, int ImageSizeH)
 {
     for (int x = 0; x < ImageSizeW; ++x)
@@ -35,6 +38,7 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
     while (true) 
     {
         SceneMutex.lock();
+        /*
         bool Changed = CurrentScene.MovePlayer(PlayerInput);
         if (Changed)
         {
@@ -43,6 +47,25 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
             if (CurrentScene.bIsWin())
             {
                 printf("Win\n");
+            }
+        }
+        */
+        if (AutoMoves.size() > 0)
+        {
+            if (CurrentMove < AutoMoves[0].StepCount)
+            {
+                PlayerInput = AutoMoves[0].Step[CurrentMove];
+                CurrentMove++;
+                bool Changed = CurrentScene.MovePlayer(PlayerInput);
+                if (Changed)
+                {
+                    printf("Moved:%d,%d\n", PlayerInput.x, PlayerInput.y);
+                    CurrentScene.UpdatePhysics();
+                    if (CurrentScene.bIsWin())
+                    {
+                        printf("Win\n");
+                    }
+                }
             }
         }
         SceneMutex.unlock();
@@ -123,8 +146,11 @@ int main()
     AtomicScene.InitialFromScene(TestScene);
     //AtomicScene.Debug();
 
-    vector<ATOMIC_Steps> Steps = CPU_Solver::Solve(AtomicScene);
-    printf("All Possible: %zd\n", Steps.size());
+    cout << "CPU\n";
+    AutoMoves = CPU_Solver::Solve(AtomicScene, true);
+    cout << "GPU\n";
+    AutoMoves = CPU_Solver::Solve(AtomicScene, true);
+    printf("All Possible: %zd\n", AutoMoves.size());
     /*
     while (true)
     {
@@ -145,9 +171,12 @@ int main()
     std::thread RenderThread(RenderThreadFunction, std::ref(AtomicScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
     while (true) 
     {
-        InputMutex.lock();
-        PlayerInput = (PlayerInput == int2{ 0,0 }) ? GetCurrentInputAxis() : PlayerInput;
-        InputMutex.unlock();
+        if (AutoMoves.size() > 0)
+        {
+            InputMutex.lock();
+            PlayerInput = (PlayerInput == int2{ 0,0 }) ? GetCurrentInputAxis() : PlayerInput;
+            InputMutex.unlock();
+        }
         //cout << PlayerInput.x << ", " << PlayerInput.y << "\n";
     }
     RenderThread.join();
