@@ -25,12 +25,20 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ Actor SHARED_ActorsFind[CHUNK_SIZE * ATOMIC_MAX_ACTORS];
-    __shared__ int SHARED_ActorCount[CHUNK_SIZE];
+    __shared__ int SHARED_ActorCount;
+
+
+    if (threadIdx.x == 0)
+    {
+        SHARED_ActorCount = StatesToMark[0].SceneState.ActorCount;
+    }
+    __syncthreads();
 
     if (idx >= N_StatesToMark)
     {
         return;
     }
+
     int N_Chunks = (N_StatesFind + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
     for (int Chunk = 0; Chunk < N_Chunks; Chunk++)
@@ -38,32 +46,28 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
         int ChunkIdx = Chunk * CHUNK_SIZE + threadIdx.x;
         if (ChunkIdx < N_StatesFind)
         {
-            for (int j = 0; j < ATOMIC_MAX_ACTORS; ++j)
+            for (int j = 0; j < SHARED_ActorCount; ++j)
             {
-                SHARED_ActorsFind[threadIdx.x * ATOMIC_MAX_ACTORS + j] = StatesFind[ChunkIdx].SceneState.Actors[j];
+                SHARED_ActorsFind[threadIdx.x * SHARED_ActorCount + j] = StatesFind[ChunkIdx].SceneState.Actors[j];
             }
-            SHARED_ActorCount[threadIdx.x] = StatesFind[ChunkIdx].SceneState.ActorCount;
         }
         __syncthreads();
         for (int i = 0; i < CHUNK_SIZE && (Chunk * CHUNK_SIZE + i) < N_StatesFind; i++)
         {
             bool bCanSkip = false;
-            if (StatesToMark[idx].SceneState.ActorCount == SHARED_ActorCount[i])
+            for (int j = 0; j < SHARED_ActorCount; ++j)
             {
-                for (int j = 0; j < ATOMIC_MAX_ACTORS; ++j)
+                if (StatesToMark[idx].SceneState.Actors[j] != SHARED_ActorsFind[i * SHARED_ActorCount + j])
                 {
-                    if (StatesToMark[idx].SceneState.Actors[j] != SHARED_ActorsFind[i * ATOMIC_MAX_ACTORS + j])
-                    {
-                        bCanSkip = true;
-                        break;
-                    }
-                }
-                if (bCanSkip)
-                {
+                    bCanSkip = true;
                     break;
                 }
-                StatesToMark[idx].ValidState = false;
             }
+            if (bCanSkip)
+            {
+                break;
+            }
+            StatesToMark[idx].ValidState = false;
         }
         __syncthreads();
     }
