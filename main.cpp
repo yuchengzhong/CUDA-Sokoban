@@ -139,12 +139,12 @@ int main()
     };
     int3 SceneSize = { 8, 8, 3 };
     TestScene.SetupScene(SceneBlock, SceneActor, SceneSize);
-    TestScene.AddActor({ SOKOBAN_PLAYER_START, 0, {1, 1, 1}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_PLAYER_START, 0, {1, 1, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
 
     ATOMIC_Scene AtomicScene;
     AtomicScene.InitialFromScene(TestScene);

@@ -2,6 +2,7 @@
 #include <cuda_runtime.h>
 #include "math.cuh"
 #include "vectorize_scene.cuh"
+#include "timer.h"
 
 struct GPU_Solver
 {

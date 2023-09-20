@@ -187,11 +187,11 @@ public:
                                 }
                             }
                             // If can push
-                            ActorW.Location = BoxNewPosition;
+                            ActorW.Location = int3_2_uchar3(BoxNewPosition);
                         }
                     }
                 }
-                CurrentActor.Location = NewPosition;
+                CurrentActor.Location = int3_2_uchar3(NewPosition);
                 return true;
             }
         }
@@ -210,7 +210,7 @@ public:
             Actor& ActorW = Actors[i];
             if (ActorW.ActorType == SOKOBAN_BOX)
             {
-                int3 BoxPosition = ActorW.Location;
+                int3 BoxPosition = uchar3_2_int3(ActorW.Location);
 
                 bool Continue = false;
                 for (int j = 0; j < ActorCount; j++)
@@ -218,7 +218,7 @@ public:
                     Actor& ActorW2 = Actors[j];
                     if (ActorW2.ActorType == SOKOBAN_BOX_TARGET)
                     {
-                        int3 TargetPosition = ActorW2.Location;
+                        int3 TargetPosition = uchar3_2_int3(ActorW2.Location);
                         if (TargetPosition == BoxPosition)
                         {
                             ActorW.ActorState = SOKOBAN_ACTIVE;

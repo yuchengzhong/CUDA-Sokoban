@@ -23,18 +23,22 @@ using namespace std;
 
 #define SOKOBAN_ERROR_COLOR float3{255.0f/255.0f, 255.0f/255.0f, 0.0f/255.0f}
 
-#define SOKOBAN_DEFAULT_INT3 int3{ -999,-999,-999 }
+#define SOKOBAN_DEFAULT_INT3 int3{ 0, 0, 0 }
+#define SOKOBAN_DEFAULT_UCHAR3 uchar3{ 0u, 0u, 0u }
 #define SOKOBAN_DEFAULT_FLOAT3 float3{ -999.0f,-999.0f,-999.0f }
 
 #define SOKOBAN_INACTIVE 0
 #define SOKOBAN_ACTIVE 1
+
+#define SOKOBAN_ACTOR_DEFAULT_ROTATION 0
+#define SOKOBAN_ACTOR_DEFAULT_ID 255
 struct Actor
 {
-	int ActorType = -1;
-	int ActorState = 0;
-	int3 Location = SOKOBAN_DEFAULT_INT3;
-	int3 Rotation = SOKOBAN_DEFAULT_INT3;
-	int Id = -1;
+	unsigned char ActorType = 255;
+	unsigned char ActorState = 0;
+	uchar3 Location = SOKOBAN_DEFAULT_UCHAR3;
+	unsigned char Rotation = SOKOBAN_ACTOR_DEFAULT_ROTATION;
+	unsigned char Id = SOKOBAN_ACTOR_DEFAULT_ID;
 
 	__host__ __device__ inline bool operator!=(const Actor& ActorOther) const
 	{
@@ -160,11 +164,11 @@ public:
 								}
 							}
 							// If can push
-							ActorW.Location = BoxNewPosition;
+							ActorW.Location = int3_2_uchar3(BoxNewPosition);
 						}
 					}
 				}
-				Actor.Location = NewPosition;
+				Actor.Location = int3_2_uchar3(NewPosition);
 				return true;
 			}
 		}
@@ -181,13 +185,13 @@ public:
 		{
 			if (ActorW.ActorType == SOKOBAN_BOX)
 			{
-				int3 BoxPosition = ActorW.Location;
+				int3 BoxPosition = uchar3_2_int3(ActorW.Location);
 
 				for (auto& ActorW2 : Actors)
 				{
 					if (ActorW2.ActorType == SOKOBAN_BOX_TARGET)
 					{
-						int3 TargetPosition = ActorW2.Location;
+						int3 TargetPosition = uchar3_2_int3(ActorW2.Location);
 						if (TargetPosition == BoxPosition)
 						{
 							ActorW.ActorState = SOKOBAN_ACTIVE;

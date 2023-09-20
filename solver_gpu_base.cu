@@ -22,23 +22,50 @@ __global__ void GenerateSolverStates(const ATOMIC_SolverState* d_SolverStates, i
         }
     }
 }
-//Todo optimize this
+#define CHUNK_SIZE 32
 __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark, int N_StatesToMark, ATOMIC_SolverState* StatesFind, int N_StatesFind)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    __shared__ Actor SHARED_ActorsFind[CHUNK_SIZE * ATOMIC_MAX_ACTORS];
+    __shared__ int SHARED_ActorCount[CHUNK_SIZE];
+
     if (idx >= N_StatesToMark)
     {
         return;
     }
-    for (int i = 0; i < N_StatesFind; i++)
+    int N_Chunks = (N_StatesFind + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+    for (int Chunk = 0; Chunk < N_Chunks; Chunk++)
     {
-        if (StatesToMark[idx].SceneState == StatesFind[i].SceneState)
+        int ChunkIdx = Chunk * CHUNK_SIZE + threadIdx.x;
+        if (ChunkIdx < N_StatesFind)
         {
-            StatesToMark[idx].ValidState = false;
-            break;
+            for (int j = 0; j < ATOMIC_MAX_ACTORS; ++j)
+            {
+                SHARED_ActorsFind[threadIdx.x * ATOMIC_MAX_ACTORS + j] = StatesFind[ChunkIdx].SceneState.Actors[j];
+            }
+            SHARED_ActorCount[threadIdx.x] = StatesFind[ChunkIdx].SceneState.ActorCount;
         }
+        __syncthreads();
+        for (int i = 0; i < CHUNK_SIZE && (Chunk * CHUNK_SIZE + i) < N_StatesFind; i++)
+        {
+            if (StatesToMark[idx].SceneState.ActorCount == SHARED_ActorCount[i])
+            {
+                for (int j = 0; j < ATOMIC_MAX_ACTORS; ++j)
+                {
+                    if (StatesToMark[idx].SceneState.Actors[j] != SHARED_ActorsFind[i * ATOMIC_MAX_ACTORS + j])
+                    {
+                        break;
+                    }
+                }
+                StatesToMark[idx].ValidState = false;
+                break;
+            }
+        }
+        __syncthreads();
     }
 }
+#undef CHUNK_SIZE
 
 //Scan
 template <typename Predicate>

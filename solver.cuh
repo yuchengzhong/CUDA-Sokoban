@@ -121,12 +121,13 @@ public:
                 }
             }
             SolverStates = NonDuplicatedSolverStates;
-            IterIndex++;
             if (ShortestOnly && Any(SolverStates))
             {
                 break;
             }
+            IterIndex++;
         }
+        cout << "CPU iters: " << IterIndex << "\n";
         vector<ATOMIC_Steps> WinSteps = Scan_SolverState(AllSolverStates);
         return WinSteps;
 	}

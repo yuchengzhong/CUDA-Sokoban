@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include <chrono>
 #include <string>
@@ -17,7 +18,7 @@ public:
         StartTime = std::chrono::high_resolution_clock::now();
     }
 
-    void Reset(std::string AdditionalInfo = "", bool bPrintDuration = true)
+    double Reset(std::string AdditionalInfo = "", bool bPrintDuration = true)
     {
         auto EndTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double, std::milli> Duration = EndTime - StartTime;
@@ -26,5 +27,6 @@ public:
             std::cout << AdditionalInfo << " Duration: " << Duration.count() << " ms" << std::endl;
         }
         Start();
+        return Duration.count();
     }
 };
