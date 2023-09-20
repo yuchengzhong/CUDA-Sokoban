@@ -410,48 +410,17 @@ public:
         }
         return true;
     }
-    __host__ __device__ bool operator<(const ATOMIC_Scene& Other) const 
-    {
-        if (SceneSize.x != Other.SceneSize.x)
-        {
-            return SceneSize.x < Other.SceneSize.x;
-        }
-        if (SceneSize.y != Other.SceneSize.y)
-        {
-            return SceneSize.y < Other.SceneSize.y;
-        }
-        if (SceneSize.z != Other.SceneSize.z)
-        {
-            return SceneSize.z < Other.SceneSize.z;
-        }
-        if (ActorCount != Other.ActorCount)
-        {
-            return ActorCount < Other.ActorCount;
-        }
-        for (int x = 0; x < SceneSize.x; x++)
-        {
-            for (int y = 0; y < SceneSize.y; y++)
-            {
-                for (int z = 0; z < SceneSize.z; z++)
-                {
-                    int Index = x + y * SceneSize.x + z * SceneSize.x * SceneSize.y;
-                    if (SceneBlock[Index] != Other.SceneBlock[Index])
-                    {
-                        return SceneBlock[Index] < Other.SceneBlock[Index];
-                    }
-                }
-            }
-        }
-        for (int j = 0; j < ActorCount; j++)
-        {
-            if (Actors[j] != Other.Actors[j])
-            {
-                return Actors[j] < Other.Actors[j];
-            }
-        }
-        return false;
-    }
 };
+
+
+struct ATOMIC_SolverState
+{
+    ATOMIC_Scene SceneState;
+    ATOMIC_Steps StepState;
+    bool WinState = false;
+    bool ValidState = false;
+};
+
 //TODO:
 //out ATOMIC_Scene[N], bool[N], in ATOMIC_Scene[N], int2 Moves[N]
 //out ATOMIC_Scene[N], bool[N], in ATOMIC_Scene[M], int2 Moves[N], int MoveOnIndex[N] # ATOMIC_Scenes[MoveOnIndex[i]]

@@ -1,29 +1,13 @@
 #pragma once
 #include <iostream>
 #include <cuda_runtime.h>
-#include <map>
-#include <set>
 #include "scene.h"
 #include "vectorize_scene.cuh"
 #include "math.cuh"
-
+// Thrust
 #include <thrust/device_vector.h>
-#include <thrust/copy.h>
-#include <thrust/reduce.h>
 const int N = 1024;
 
-__global__ void RenderScene_UV(const RenderData* SceneData, int NumData, float3* Out_Buffer, int2 OutBufferSize, float Time);
-__global__ void RenderScene(const RenderData* SceneData, int NumData, int3 SceneSize, float3* Out_Buffer, int2 OutBufferSize, float Time);
-
-vector<float3> Launch_RenderScene(const vector<RenderData>& SceneData, int3 SceneSize, int2 BufferSize, float Time);
-
-struct ATOMIC_SolverState
-{
-    ATOMIC_Scene SceneState;
-    ATOMIC_Steps StepState;
-    bool WinState = false;
-    bool ValidState = false;
-};
 struct CPU_Solver
 {
 public:
@@ -146,14 +130,4 @@ public:
         vector<ATOMIC_Steps> WinSteps = Scan_SolverState(AllSolverStates);
         return WinSteps;
 	}
-};
-
-
-__global__ void GenerateSolverStates(const ATOMIC_SolverState* d_SolverStates, int StatesSize, ATOMIC_SolverState* d_NewSolverStates);
-
-thrust::device_vector<ATOMIC_SolverState> Scan(const thrust::device_vector<ATOMIC_SolverState>& NewSolverStates);
-struct GPU_Solver
-{
-public:
-    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly);
 };

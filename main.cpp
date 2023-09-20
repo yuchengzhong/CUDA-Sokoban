@@ -1,7 +1,9 @@
 #include <iostream>
 #include <vector>
 #include <windows.h>
-#include <solver.cuh>
+#include "render.cuh"
+#include "solver.cuh"
+#include "solver_gpu.cuh"
 #include "scene.h"
 
 #include <windows.h>
@@ -9,6 +11,7 @@
 #include <thread>
 #include <mutex>
 #include "math.cuh"
+#include "timer.h"
 #include "vectorize_scene.cuh"
 using namespace std;
 
@@ -17,6 +20,7 @@ std::mutex InputMutex;
 int2 PlayerInput = {0,0};
 
 vector<ATOMIC_Steps> AutoMoves;
+Timer SolverTimer;
 int CurrentMove = 0;
 void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int ImageSizeW, int ImageSizeH)
 {
@@ -146,10 +150,13 @@ int main()
     AtomicScene.InitialFromScene(TestScene);
     //AtomicScene.Debug();
 
-    cout << "CPU\n";
+    SolverTimer.Start();
     AutoMoves = CPU_Solver::Solve(AtomicScene, true);
-    cout << "GPU\n";
-    AutoMoves = CPU_Solver::Solve(AtomicScene, true);
+    SolverTimer.Reset(string("CPU Solver"), true);
+
+    SolverTimer.Start();
+    AutoMoves = GPU_Solver::Solve(AtomicScene, true);
+    SolverTimer.Reset(string("GPU Solver"), true);
     printf("All Possible: %zd\n", AutoMoves.size());
     /*
     while (true)
