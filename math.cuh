@@ -54,7 +54,8 @@ __host__ __device__ inline float3 operator+(float3 a, float3 b) {
     return result;
 }
 
-__host__ __device__ inline float3 operator-(float3 a, float3 b) {
+__host__ __device__ inline float3 operator-(float3 a, float3 b) 
+{
     float3 result;
     result.x = a.x - b.x;
     result.y = a.y - b.y;
@@ -84,6 +85,10 @@ __host__ __device__ inline bool operator==(float3 vec1, float3 vec2)
 __host__ __device__ inline bool operator==(int3 vec1, int3 vec2)
 {
     return (vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z);
+}
+__host__ __device__ inline bool operator!=(int3 vec1, int3 vec2)
+{
+    return !((vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z));
 }
 __host__ __device__ inline bool operator==(int2 vec1, int2 vec2)
 {
