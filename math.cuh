@@ -54,7 +54,8 @@ __host__ __device__ inline float3 operator+(float3 a, float3 b) {
     return result;
 }
 
-__host__ __device__ inline float3 operator-(float3 a, float3 b) {
+__host__ __device__ inline float3 operator-(float3 a, float3 b) 
+{
     float3 result;
     result.x = a.x - b.x;
     result.y = a.y - b.y;
@@ -85,6 +86,26 @@ __host__ __device__ inline bool operator==(int3 vec1, int3 vec2)
 {
     return (vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z);
 }
+__host__ __device__ inline bool operator==(uchar3 vec1, uchar3 vec2)
+{
+    return (vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z);
+}
+__host__ __device__ inline bool operator==(uchar3 vec1, int3 vec2)
+{
+    return (vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z);
+}
+__host__ __device__ inline bool operator!=(int3 vec1, int3 vec2)
+{
+    return !((vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z));
+}
+__host__ __device__ inline bool operator!=(uchar3 vec1, uchar3 vec2)
+{
+    return !((vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z));
+}
+__host__ __device__ inline bool operator!=(uchar3 vec1, int3 vec2)
+{
+    return !((vec1.x == vec2.x) && (vec1.y == vec2.y) && (vec1.z == vec2.z));
+}
 __host__ __device__ inline bool operator==(int2 vec1, int2 vec2)
 {
     return (vec1.x == vec2.x) && (vec1.y == vec2.y);
@@ -100,6 +121,14 @@ __host__ __device__ inline float3 operator/(float3 vec1, float3 vec2)
     result.y = vec1.y / vec2.y;
     result.z = vec1.z / vec2.z;
     return result;
+}
+__host__ __device__ inline uchar3 int3_2_uchar3(int3 vec)
+{
+    return make_uchar3(vec.x, vec.y, vec.z);
+}
+__host__ __device__ inline int3 uchar3_2_int3(uchar3 vec)
+{
+    return make_int3(vec.x, vec.y, vec.z);
 }
 __host__ __device__ inline float dot(float3 vec1, float3 vec2)
 {

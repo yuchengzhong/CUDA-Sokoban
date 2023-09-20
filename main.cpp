@@ -1,19 +1,27 @@
 #include <iostream>
 #include <vector>
 #include <windows.h>
-#include <solver.cuh>
+#include "render.cuh"
+#include "solver.cuh"
+#include "solver_gpu.cuh"
 #include "scene.h"
-using namespace std;
 
 #include <windows.h>
 
 #include <thread>
 #include <mutex>
 #include "math.cuh"
+#include "timer.h"
+#include "vectorize_scene.cuh"
+using namespace std;
 
 std::mutex SceneMutex;
 std::mutex InputMutex;
 int2 PlayerInput = {0,0};
+
+vector<ATOMIC_Steps> AutoMoves;
+Timer SolverTimer;
+int CurrentMove = 0;
 void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int ImageSizeW, int ImageSizeH)
 {
     for (int x = 0; x < ImageSizeW; ++x)
@@ -28,19 +36,48 @@ void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int Imag
         }
     }
 }
-void RenderThreadFunction(Scene& CurrentScene, int3 SceneSize, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
+void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
 {
     float Time = 0.0f;
     while (true) 
     {
         SceneMutex.lock();
-        CurrentScene.MovePlayer(PlayerInput);
+        /*
+        bool Changed = CurrentScene.MovePlayer(PlayerInput);
+        if (Changed)
+        {
+            printf("Moved:%d,%d\n", PlayerInput.x, PlayerInput.y);
+            CurrentScene.UpdatePhysics();
+            if (CurrentScene.bIsWin())
+            {
+                printf("Win\n");
+            }
+        }
+        */
+        if (AutoMoves.size() > 0)
+        {
+            if (CurrentMove < AutoMoves[0].StepCount)
+            {
+                PlayerInput = AutoMoves[0].Step[CurrentMove];
+                CurrentMove++;
+                bool Changed = CurrentScene.MovePlayer(PlayerInput);
+                if (Changed)
+                {
+                    printf("Moved:%d,%d\n", PlayerInput.x, PlayerInput.y);
+                    CurrentScene.UpdatePhysics();
+                    if (CurrentScene.bIsWin())
+                    {
+                        printf("Win\n");
+                    }
+                }
+            }
+        }
         SceneMutex.unlock();
 
         SceneMutex.lock();
         vector<float3> ImageBuffer = Launch_RenderScene(CurrentScene.GetRenderData(), SceneSize, { ImageSizeW , ImageSizeH }, Time);
         CopyBufferToHDC(TempDC, ImageBuffer, ImageSizeW, ImageSizeH);
-        BitBlt(TargetHDC, 0, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
+        BitBlt(TargetHDC, 512, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
         SceneMutex.unlock();
 
         InputMutex.lock();
@@ -102,10 +139,25 @@ int main()
     };
     int3 SceneSize = { 8, 8, 3 };
     TestScene.SetupScene(SceneBlock, SceneActor, SceneSize);
-    TestScene.AddActor({ SOKOBAN_PLAYER_START, 0, {1, 1, 1}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, {-1,-1,-1} });
-    TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, {-1,-1,-1} });
+    TestScene.AddActor({ SOKOBAN_PLAYER_START, 0, {1, 1, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ROTATION, SOKOBAN_ACTOR_DEFAULT_ID });
+
+    ATOMIC_Scene AtomicScene;
+    AtomicScene.InitialFromScene(TestScene);
+    //AtomicScene.Debug();
+
+    SolverTimer.Start();
+    AutoMoves = CPU_Solver::Solve(AtomicScene, true);
+    SolverTimer.Reset(string("CPU Solver"), true);
+
+    SolverTimer.Start();
+    AutoMoves = GPU_Solver::Solve(AtomicScene, true);
+    SolverTimer.Reset(string("GPU Solver"), true);
+    printf("All Possible: %zd\n", AutoMoves.size());
     /*
     while (true)
     {
@@ -123,12 +175,15 @@ int main()
         //Time += 0.125f;
     }
     */
-    std::thread RenderThread(RenderThreadFunction, std::ref(TestScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
+    std::thread RenderThread(RenderThreadFunction, std::ref(AtomicScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
     while (true) 
     {
-        InputMutex.lock();
-        PlayerInput = (PlayerInput == int2{ 0,0 }) ? GetCurrentInputAxis() : PlayerInput;
-        InputMutex.unlock();
+        if (AutoMoves.size() > 0)
+        {
+            InputMutex.lock();
+            PlayerInput = (PlayerInput == int2{ 0,0 }) ? GetCurrentInputAxis() : PlayerInput;
+            InputMutex.unlock();
+        }
         //cout << PlayerInput.x << ", " << PlayerInput.y << "\n";
     }
     RenderThread.join();
