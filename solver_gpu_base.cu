@@ -49,16 +49,21 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
         __syncthreads();
         for (int i = 0; i < CHUNK_SIZE && (Chunk * CHUNK_SIZE + i) < N_StatesFind; i++)
         {
+            bool bCanSkip = false;
             if (StatesToMark[idx].SceneState.ActorCount == SHARED_ActorCount[i])
             {
                 for (int j = 0; j < ATOMIC_MAX_ACTORS; ++j)
                 {
                     if (StatesToMark[idx].SceneState.Actors[j] != SHARED_ActorsFind[i * ATOMIC_MAX_ACTORS + j])
                     {
+                        bCanSkip = true;
+                        StatesToMark[idx].ValidState = false;
                         break;
                     }
                 }
-                StatesToMark[idx].ValidState = false;
+            }
+            if (bCanSkip)
+            {
                 break;
             }
         }
