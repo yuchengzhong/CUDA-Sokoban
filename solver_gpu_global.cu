@@ -1,27 +1,29 @@
 #include "solver_gpu_global.cuh"
 
 // Globals
-__global__ void GenerateSolverStates(const ATOMIC_SolverState* d_SolverStates, int StatesSize, ATOMIC_SolverState* d_NewSolverStates)
+__global__ void GenerateSolverStates(const ATOMIC_SolverState* SolverStates, const int N_SolverStates, ATOMIC_SolverState* d_NewSolverStates)
 {
-    int t = threadIdx.x + blockIdx.x * blockDim.x;
-    if (t < StatesSize)
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= N_SolverStates)
     {
-        for (int i = 0; i < 4; i++)
-        {
-            ATOMIC_SolverState Candidate = d_SolverStates[t];
-            int2 CurrentMoveStep = ATOMIC_Steps::GetStepByIndex(i);
+        return;
+    }
+    const int2 Steps[4] = { { 1,0 } ,{ -1,0 } ,{ 0,1 } , { 0,-1 } };
+    for (int i = 0; i < 4; i++)
+    {
+        ATOMIC_SolverState Candidate = SolverStates[idx];
+        int2 CurrentMoveStep = Steps[i];// ATOMIC_Steps::GetStepByIndex(i);
 
-            bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
-            Candidate.SceneState.UpdatePhysics();
-            Candidate.StepState.AddStep(CurrentMoveStep);
-            Candidate.WinState = Candidate.SceneState.bIsWin();
-            Candidate.ValidState = bMoveValid;
-            d_NewSolverStates[i + 4 * t] = Candidate;
-        }
+        bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
+        Candidate.SceneState.UpdatePhysics();
+        Candidate.StepState.AddStep(CurrentMoveStep);
+        Candidate.WinState = Candidate.SceneState.bIsWin();
+        Candidate.ValidState = bMoveValid;
+        d_NewSolverStates[i + 4 * idx] = Candidate;
     }
 }
 #define CHUNK_SIZE 32
-__global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark, int N_StatesToMark, ATOMIC_SolverState* StatesFind, int N_StatesFind)
+__global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark, const int N_StatesToMark, const ATOMIC_SolverState* StatesFind, const int N_StatesFind)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     __shared__ Actor SHARED_ActorsFind[CHUNK_SIZE * ATOMIC_MAX_ACTORS];

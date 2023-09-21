@@ -121,17 +121,19 @@ public:
         ActorCount = 0;
     }
 
-    __host__ __device__ bool bIsPositionOutOfBound(int3 Position) const
+    __host__ __device__ inline bool bIsPositionOutOfBound(int3 Position) const
     {
         return Position.x < 0 || Position.x >= SceneSize.x || Position.y < 0 || Position.y >= SceneSize.y || Position.z < 0 || Position.z >= SceneSize.z;
     }
+    //TODO: Finalize scene, store the key value as static(after finalize)
     __host__ __device__ bool MovePlayer(int2 Move)
     {
         if (Move.x == 0 && Move.y == 0)
         {
             return false;
         }
-        if (abs(Move.x) == abs(Move.y) && abs(Move.x) == 1)
+        int AbsMoveX = abs(Move.x);
+        if (AbsMoveX == 1 && AbsMoveX == abs(Move.y)) 
         {
             Move.y = 0;
         }
