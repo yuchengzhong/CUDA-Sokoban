@@ -1,7 +1,7 @@
 #include "solver_gpu_global.cuh"
 
 // Globals
-__global__ void GenerateSolverStates(const ATOMIC_SolverState* SolverStates, const int N_SolverStates, ATOMIC_SolverState* d_NewSolverStates)
+__global__ void GenerateSolverStates(const ATOMIC_SolverState* SolverStates, const STATIC_SceneBlock* SceneBlock, const int N_SolverStates, ATOMIC_SolverState* d_NewSolverStates)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_SolverStates)
@@ -14,7 +14,7 @@ __global__ void GenerateSolverStates(const ATOMIC_SolverState* SolverStates, con
         ATOMIC_SolverState Candidate = SolverStates[idx];
         int2 CurrentMoveStep = Steps[i];// ATOMIC_Steps::GetStepByIndex(i);
 
-        bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
+        bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep, SceneBlock[Candidate.SceneState.SceneIndex]);
         Candidate.SceneState.UpdatePhysics();
         Candidate.StepState.AddStep(CurrentMoveStep);
         Candidate.WinState = Candidate.SceneState.bIsWin();

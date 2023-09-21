@@ -54,7 +54,7 @@
 */
 
 #define GPU_SOLVER_STATE_FIRST_ALLOC 2048
-vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly, bool Debug)
+vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const STATIC_SceneBlock& SceneBlock, bool ShortestOnly, bool Debug)
 {
     Timer SolverTimer;
     double T_NewSolverStates_resize = 0.0;
@@ -69,6 +69,9 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
     cudaError_t CudaError = cudaGetLastError();
     //
     const unsigned int N_ThreadsPerBlock = 32;
+    thrust::device_vector<STATIC_SceneBlock> STATIC_SceneBlocks(1);
+    STATIC_SceneBlocks[0] = SceneBlock;
+
     thrust::device_vector<ATOMIC_SolverState> AllSolverStates;
     //
     thrust::device_vector<ATOMIC_SolverState> SolverStates(GPU_SOLVER_STATE_FIRST_ALLOC);
@@ -94,7 +97,7 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
 
         SolverTimer.Start();
         unsigned int N_Blocks = static_cast<unsigned int>((N_SolverStates + N_ThreadsPerBlock - 1) / N_ThreadsPerBlock);
-        GenerateSolverStates << <N_Blocks, N_ThreadsPerBlock >> > (thrust::raw_pointer_cast(SolverStates.data()), static_cast<int>(N_SolverStates), thrust::raw_pointer_cast(NewSolverStates.data()));
+        GenerateSolverStates << <N_Blocks, N_ThreadsPerBlock >> > (thrust::raw_pointer_cast(SolverStates.data()), thrust::raw_pointer_cast(STATIC_SceneBlocks.data()), static_cast<int>(N_SolverStates), thrust::raw_pointer_cast(NewSolverStates.data()));
         cudaDeviceSynchronize();
         T_GenerateSolverStates += SolverTimer.Reset(string("GenerateSolverStates"), false);
         if (Debug)

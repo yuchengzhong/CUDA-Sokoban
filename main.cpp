@@ -36,7 +36,7 @@ void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int Imag
         }
     }
 }
-void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
+void RenderThreadFunction(ATOMIC_Scene& CurrentScene, const STATIC_SceneBlock& SceneBlock, int ImageSizeW, int ImageSizeH, HDC& TempDC, HDC& TargetHDC)
 {
     float Time = 0.0f;
     while (true) 
@@ -60,7 +60,7 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
             {
                 PlayerInput = AutoMoves[0].Step[CurrentMove];
                 CurrentMove++;
-                bool Changed = CurrentScene.MovePlayer(PlayerInput);
+                bool Changed = CurrentScene.MovePlayer(PlayerInput, SceneBlock);
                 if (Changed)
                 {
                     printf("Moved:%d,%d\n", PlayerInput.x, PlayerInput.y);
@@ -75,7 +75,7 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, int3 SceneSize, int ImageS
         SceneMutex.unlock();
 
         SceneMutex.lock();
-        vector<float3> ImageBuffer = Launch_RenderScene(CurrentScene.GetRenderData(), SceneSize, { ImageSizeW , ImageSizeH }, Time);
+        vector<float3> ImageBuffer = Launch_RenderScene(CurrentScene.GetRenderData(SceneBlock), SceneBlock.SceneSize, { ImageSizeW , ImageSizeH }, Time);
         CopyBufferToHDC(TempDC, ImageBuffer, ImageSizeW, ImageSizeH);
         BitBlt(TargetHDC, 512, 64, ImageSizeW, ImageSizeH, TempDC, 0, 0, SRCCOPY);
         SceneMutex.unlock();
@@ -148,14 +148,16 @@ int main()
 
     ATOMIC_Scene AtomicScene;
     AtomicScene.InitialFromScene(TestScene);
+    STATIC_SceneBlock StaticSceneBlock;
+    StaticSceneBlock.InitialFromScene(TestScene);
     //AtomicScene.Debug();
 
     SolverTimer.Start();
-    AutoMoves = CPU_Solver::Solve(AtomicScene, true);
+    AutoMoves = CPU_Solver::Solve(AtomicScene, StaticSceneBlock, true);
     SolverTimer.Reset(string("CPU Solver"), true);
 
     SolverTimer.Start();
-    AutoMoves = GPU_Solver::Solve(AtomicScene, true);
+    AutoMoves = GPU_Solver::Solve(AtomicScene, StaticSceneBlock, true);
     SolverTimer.Reset(string("GPU Solver"), true);
     printf("All Possible: %zd\n", AutoMoves.size());
     /*
@@ -175,7 +177,7 @@ int main()
         //Time += 0.125f;
     }
     */
-    std::thread RenderThread(RenderThreadFunction, std::ref(AtomicScene), SceneSize, ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
+    std::thread RenderThread(RenderThreadFunction, std::ref(AtomicScene), std::ref(StaticSceneBlock), ImageSizeW, ImageSizeH, std::ref(TempDC), std::ref(TargetHDC));
     while (true) 
     {
         if (AutoMoves.size() > 0)

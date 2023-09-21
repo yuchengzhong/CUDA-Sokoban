@@ -52,12 +52,67 @@ public:
     }
 };
 
-struct ATOMIC_Scene
+struct STATIC_SceneBlock
 {
 public:
     uint8_t SceneBlock[ATOMIC_MAX_BLOCKS];
+    int3 SceneSize = { 0,0,0 };
+    __host__ bool InitialFromScene(const Scene& SourceScene)
+    {
+        for (size_t i = 0; i < SourceScene.SceneBlock.size(); ++i)
+        {
+            SceneBlock[i] = SourceScene.SceneBlock[i];
+        }
+        SceneSize = SourceScene.SceneSize;
+        return true;
+    }
+    __host__ bool SetupScene(const vector<uint8_t>& SceneBlock_, int3 SceneSize_)
+    {
+        assert(SceneBlock_.size() == SceneSize_.x * SceneSize_.y * SceneSize_.z);
+        if (SceneBlock_.size() > ATOMIC_MAX_BLOCKS)
+        {
+            return false;
+        }
+        SceneSize = SceneSize_;
+        for (size_t i = 0; i < SceneBlock_.size(); ++i)
+        {
+            SceneBlock[i] = SceneBlock_[i];
+        }
+    }
+    __host__ void Reset()
+    {
+        for (int i = 0; i < ATOMIC_MAX_BLOCKS; i++)
+        {
+            SceneBlock[i] = 0;
+        }
+        SceneSize = int3();
+    }
+    __host__ __device__ inline bool bIsPositionOutOfBound(int3 Position) const
+    {
+        return Position.x < 0 || Position.x >= SceneSize.x || Position.y < 0 || Position.y >= SceneSize.y || Position.z < 0 || Position.z >= SceneSize.z;
+    }
+
+    __host__ __device__ inline bool operator==(const STATIC_SceneBlock& Other) const
+    {
+        if (SceneSize != Other.SceneSize)
+        {
+            return false;
+        }
+        for (int i = 0; i < ATOMIC_MAX_BLOCKS; ++i)
+        {
+            if (SceneBlock[i] != Other.SceneBlock[i])
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+struct ATOMIC_Scene
+{
+public:
     Actor Actors[ATOMIC_MAX_ACTORS];
-    int3 SceneSize = {0,0,0};
     int ActorCount = 0;
     int SceneIndex = 0;
 
@@ -71,36 +126,21 @@ public:
         {
             return false;
         }
-        for (size_t i = 0; i < SourceScene.SceneBlock.size(); ++i)
-        {
-            SceneBlock[i] = SourceScene.SceneBlock[i];
-        }
         for (size_t i = 0; i < SourceScene.Actors.size(); ++i)
         {
             Actors[i] = SourceScene.Actors[i];
         }
-        SceneSize = SourceScene.SceneSize;
         ActorCount = static_cast<int>(SourceScene.Actors.size());
         return true;
     }
 
-    __host__ bool SetupScene(const vector<uint8_t>& SceneBlock_, const vector<Actor>& Actors_, int3 SceneSize_)
+    __host__ bool SetupScene(const vector<Actor>& Actors_)
     {
-        assert(SceneBlock_.size() == SceneSize_.x * SceneSize_.y * SceneSize_.z);
-        if (SceneBlock_.size() > ATOMIC_MAX_BLOCKS)
-        {
-            return false;
-        }
         if (Actors_.size() > ATOMIC_MAX_ACTORS)
         {
             return false;
         }
-        SceneSize = SceneSize_;
         ActorCount = static_cast<int>(Actors_.size());
-        for (size_t i = 0; i < SceneBlock_.size(); ++i)
-        {
-            SceneBlock[i] = SceneBlock_[i];
-        }
         for (size_t i = 0; i < Actors_.size(); ++i)
         {
             Actors[i] = Actors_[i];
@@ -109,25 +149,15 @@ public:
     }
     __host__ void Reset()
     {
-        for (int i = 0; i < ATOMIC_MAX_BLOCKS; i++)
-        {
-            SceneBlock[i] = 0;
-        }
         Actor defaultActor;
         for (int i = 0; i < ATOMIC_MAX_ACTORS; i++)
         {
             Actors[i] = defaultActor;
         }
-        SceneSize = int3();
         ActorCount = 0;
     }
-
-    __host__ __device__ inline bool bIsPositionOutOfBound(int3 Position) const
-    {
-        return Position.x < 0 || Position.x >= SceneSize.x || Position.y < 0 || Position.y >= SceneSize.y || Position.z < 0 || Position.z >= SceneSize.z;
-    }
     //TODO: Finalize scene, store the key value as static(after finalize)
-    __host__ __device__ bool MovePlayer(int2 Move)
+    __host__ __device__ bool MovePlayer(int2 Move, const STATIC_SceneBlock& StaticSceneBlock)
     {
         if (Move.x == 0 && Move.y == 0)
         {
@@ -145,12 +175,12 @@ public:
             if (ActorsType == SOKOBAN_PLAYER)
             {
                 int3 NewPosition = { CurrentActor.Location.x + Move.x, CurrentActor.Location.y + Move.y, CurrentActor.Location.z };
-                if (bIsPositionOutOfBound(NewPosition))
+                if (StaticSceneBlock.bIsPositionOutOfBound(NewPosition))
                 {
                     return false;
                 }
-                int NewIndex = NewPosition.x + NewPosition.y * SceneSize.x + NewPosition.z * SceneSize.x * SceneSize.y;
-                if (SceneBlock[NewIndex] == SOKOBAN_WALL)
+                int NewIndex = NewPosition.x + NewPosition.y * StaticSceneBlock.SceneSize.x + NewPosition.z * StaticSceneBlock.SceneSize.x * StaticSceneBlock.SceneSize.y;
+                if (StaticSceneBlock.SceneBlock[NewIndex] == SOKOBAN_WALL)
                 {
                     return false;
                 }
@@ -164,12 +194,12 @@ public:
                         {
                             int BoxId = ActorW.Id;
                             int3 BoxNewPosition = { ActorW.Location.x + Move.x, ActorW.Location.y + Move.y, ActorW.Location.z };
-                            if (bIsPositionOutOfBound(BoxNewPosition))
+                            if (StaticSceneBlock.bIsPositionOutOfBound(BoxNewPosition))
                             {
                                 return false;
                             }
-                            int BoxNewIndex = BoxNewPosition.x + BoxNewPosition.y * SceneSize.x + BoxNewPosition.z * SceneSize.x * SceneSize.y;
-                            if (SceneBlock[BoxNewIndex] == SOKOBAN_WALL) // If box forward is wall
+                            int BoxNewIndex = BoxNewPosition.x + BoxNewPosition.y * StaticSceneBlock.SceneSize.x + BoxNewPosition.z * StaticSceneBlock.SceneSize.x * StaticSceneBlock.SceneSize.y;
+                            if (StaticSceneBlock.SceneBlock[BoxNewIndex] == SOKOBAN_WALL) // If box forward is wall
                             {
                                 return false;
                             }
@@ -256,17 +286,17 @@ public:
         }
         return true;
     }
-    vector<RenderData> GetRenderData() const
+    vector<RenderData> GetRenderData(const STATIC_SceneBlock& StaticSceneBlock) const
     {
         vector<RenderData> Result;
-        for (int x = 0; x < SceneSize.x; x++)
+        for (int x = 0; x < StaticSceneBlock.SceneSize.x; x++)
         {
-            for (int y = 0; y < SceneSize.y; y++)
+            for (int y = 0; y < StaticSceneBlock.SceneSize.y; y++)
             {
-                for (int z = 0; z < SceneSize.z; z++)
+                for (int z = 0; z < StaticSceneBlock.SceneSize.z; z++)
                 {
-                    int Index = x + y * SceneSize.x + z * SceneSize.x * SceneSize.y;
-                    uint8_t BlockType = SceneBlock[Index];
+                    int Index = x + y * StaticSceneBlock.SceneSize.x + z * StaticSceneBlock.SceneSize.x * StaticSceneBlock.SceneSize.y;
+                    uint8_t BlockType = StaticSceneBlock.SceneBlock[Index];
                     if (BlockType == SOKOBAN_WALL)
                     {
                         Result.push_back({ {x,y,z},SOKOBAN_WALL_COLOR , {1.0f,1.0f,1.0f}, {0.0f,0.0f,0.0f} });
@@ -302,49 +332,16 @@ public:
         //printf("Atomic\n");
         return Result;
     }
-    __host__ __device__ static bool bIsSame(const ATOMIC_Scene& SceneState1, const ATOMIC_Scene& SceneState2)
+    void Debug(const STATIC_SceneBlock& StaticSceneBlock)
     {
-        if (SceneState1.SceneSize != SceneState2.SceneSize)
+        for (int z = 0; z < StaticSceneBlock.SceneSize.z; z++)
         {
-            return false;
-        }
-        for (int x = 0; x < SceneState1.SceneSize.x; x++)
-        {
-            for (int y = 0; y < SceneState1.SceneSize.y; y++)
+            for (int y = 0; y < StaticSceneBlock.SceneSize.y; y++)
             {
-                for (int z = 0; z < SceneState1.SceneSize.z; z++)
+                for (int x = 0; x < StaticSceneBlock.SceneSize.x; x++)
                 {
-                    int Index = x + y * SceneState1.SceneSize.x + z * SceneState1.SceneSize.x * SceneState1.SceneSize.y;
-                    if (SceneState1.SceneBlock[Index] != SceneState2.SceneBlock[Index])
-                    {
-                        return false;
-                    }
-                }
-            }
-        }
-        if (SceneState1.ActorCount != SceneState2.ActorCount)
-        {
-            return false;
-        }
-        for (int i = 0; i < SceneState1.ActorCount; i++)
-        {
-            if (SceneState1.Actors[i] != SceneState2.Actors[i])
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-    void Debug()
-    {
-        for (int z = 0; z < SceneSize.z; z++)
-        {
-            for (int y = 0; y < SceneSize.y; y++)
-            {
-                for (int x = 0; x < SceneSize.x; x++)
-                {
-                    int Index = x + y * SceneSize.x + z * SceneSize.x * SceneSize.y;
-                    printf("%d ", SceneBlock[Index]);
+                    int Index = x + y * StaticSceneBlock.SceneSize.x + z * StaticSceneBlock.SceneSize.x * StaticSceneBlock.SceneSize.y;
+                    printf("%d ", StaticSceneBlock.SceneBlock[Index]);
                 }
                 printf("\n");
             }
@@ -377,30 +374,7 @@ public:
 
     __host__ __device__ inline bool operator==(const ATOMIC_Scene& Other) const
     {
-        if (SceneSize != Other.SceneSize || ActorCount != Other.ActorCount)
-        {
-            return false;
-        }
-        for (int i = 0; i < ATOMIC_MAX_BLOCKS; ++i)
-        {
-            if (SceneBlock[i] != Other.SceneBlock[i])
-            {
-                return false;
-            }
-        }
-
-        for (int i = 0; i < ATOMIC_MAX_ACTORS; ++i)
-        {
-            if (Actors[i] != Other.Actors[i])
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-    __host__ __device__ inline bool operator%=(const ATOMIC_Scene& Other) const
-    {
-        if (SceneSize != Other.SceneSize || ActorCount != Other.ActorCount)
+        if (ActorCount != Other.ActorCount)
         {
             return false;
         }

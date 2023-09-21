@@ -51,7 +51,7 @@ public:
     {
         for (int i = 0; i < Array.size(); i++)
         {
-            if (Array[i].SceneState %= ItemToFind)
+            if (Array[i].SceneState == ItemToFind)
             {
                 return true;
             }
@@ -81,7 +81,7 @@ public:
         }
         return Result;
     }
-    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly)
+    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, const STATIC_SceneBlock& SceneBlock, bool ShortestOnly)
 	{
         vector<ATOMIC_SolverState> AllSolverStates;
 
@@ -97,7 +97,7 @@ public:
                 {
                     ATOMIC_SolverState Candidate = SolverStates[t];
                     int2 CurrentMoveStep = ATOMIC_Steps::GetStepByIndex(i);
-                    bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
+                    bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep, SceneBlock);
                     Candidate.SceneState.UpdatePhysics();
 
                     Candidate.StepState.AddStep(CurrentMoveStep);
