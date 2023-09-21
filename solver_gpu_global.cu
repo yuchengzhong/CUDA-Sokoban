@@ -37,34 +37,34 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
     }
 
     uint32_t N_Chunks = (N_StatesFind + CHUNK_SIZE - 1) / CHUNK_SIZE;
-    const ATOMIC_SolverState CurrentStateToMark = StatesToMark[idx];
+    const ATOMIC_Scene CurrentStateToMark = StatesToMark[idx].SceneState;
     for (uint32_t Chunk = 0; Chunk < N_Chunks; Chunk++)
     {
         uint32_t ChunkIdx = Chunk * CHUNK_SIZE + threadIdx.x;
         if (ChunkIdx < N_StatesFind)
         {
-            const ATOMIC_SolverState CurrentStateToFind = StatesFind[ChunkIdx];
-            SHARED_ActorCount[threadIdx.x] = CurrentStateToFind.SceneState.ActorCount;
+            const ATOMIC_Scene CurrentStateToFind = StatesFind[ChunkIdx].SceneState;
+            SHARED_ActorCount[threadIdx.x] = CurrentStateToFind.ActorCount;
+            SHARED_SceneIndex[threadIdx.x] = CurrentStateToFind.SceneIndex;
             for (uint32_t j = 0; j < SHARED_ActorCount[threadIdx.x]; ++j)
             {
                 uint32_t Index = threadIdx.x * ATOMIC_MAX_ACTORS + j;
-                SHARED_ActorsFind[Index] = Pack1UChar1UChar3ToUINT32(CurrentStateToFind.SceneState.Actors[j].ActorState, CurrentStateToFind.SceneState.Actors[j].Location);
+                SHARED_ActorsFind[Index] = Pack1UChar1UChar3ToUINT32(CurrentStateToFind.Actors[j].ActorState, CurrentStateToFind.Actors[j].Location);
             }
-            SHARED_SceneIndex[threadIdx.x] = CurrentStateToFind.SceneState.SceneIndex;
         }
         __syncthreads();
         for (uint32_t i = 0; i < CHUNK_SIZE && (Chunk * CHUNK_SIZE + i) < N_StatesFind; i++)
         {
-            if (SHARED_SceneIndex[i] != CurrentStateToMark.SceneState.SceneIndex ||
-                SHARED_ActorCount[i] != CurrentStateToMark.SceneState.ActorCount)
+            if (SHARED_SceneIndex[i] != CurrentStateToMark.SceneIndex ||
+                SHARED_ActorCount[i] != CurrentStateToMark.ActorCount)
             {
                 continue;
             }
             bool bCanSkip = false;
-            for (uint32_t j = 0; j < CurrentStateToMark.SceneState.ActorCount; ++j)
+            for (uint32_t j = 0; j < CurrentStateToMark.ActorCount; ++j)
             {
                 uint32_t Index = i * ATOMIC_MAX_ACTORS + j;
-                uint32_t Packed = Pack1UChar1UChar3ToUINT32(CurrentStateToMark.SceneState.Actors[j].ActorState, CurrentStateToMark.SceneState.Actors[j].Location);
+                uint32_t Packed = Pack1UChar1UChar3ToUINT32(CurrentStateToMark.Actors[j].ActorState, CurrentStateToMark.Actors[j].Location);
                 if (Packed != SHARED_ActorsFind[Index])
                 {
                     bCanSkip = true;

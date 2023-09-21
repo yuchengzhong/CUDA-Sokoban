@@ -5,19 +5,34 @@
 
 #define ATOMIC_MAX_BLOCKS 16*16*16
 #define ATOMIC_MAX_ACTORS 16
-#define ATOMIC_MAX_STEP 256
+
+//4 is enough for wsad and zero move
+#define MOVEMENT_BIT 4
+#define ATOMIC_MAX_STEP 255
 
 
 struct ATOMIC_Steps
 {
 public:
-    int2 Step[ATOMIC_MAX_STEP];
-    int StepCount = 0;
-    __host__ __device__ bool AddStep(int2 Position)
+    unsigned char Step[ATOMIC_MAX_STEP / (8 / MOVEMENT_BIT) + 1];
+    unsigned char StepCount = 0;
+    __host__ __device__ bool AddStep(int2 MoveDirection)
     {
+        unsigned char NewIndex = GetIndexByStep(MoveDirection);
         if (StepCount < ATOMIC_MAX_STEP)
         {
-            Step[StepCount] = Position;
+            unsigned char& TargetChar = Step[StepCount / (8 / MOVEMENT_BIT)];
+
+            if (StepCount % 2 == 0)
+            {
+                TargetChar &= 0x0F;
+                TargetChar |= (NewIndex << 4);
+            }
+            else
+            {
+                TargetChar &= 0xF0;
+                TargetChar |= NewIndex;
+            }
             StepCount++;
             return true;
         }
@@ -26,29 +41,69 @@ public:
     __host__ __device__ static ATOMIC_Steps GetEmptyStep()
     {
         ATOMIC_Steps Result;
-        Result.Step[0] = { 0,0 };
+        Result.Step[0] = 0;
         return Result;
     }
-    __host__ __device__ static int2 GetStepByIndex(int i)
+    __host__ __device__ int2 GetStep(unsigned int Index)
+    {
+        if (Index >= StepCount || Index >= ATOMIC_MAX_STEP)
+        {
+            return { 0, 0 };
+        }
+        unsigned char TargetChar = Step[Index / 2];
+        unsigned char ExtractedIndex;
+
+        if (Index % 2 == 0)
+        {
+            ExtractedIndex = (TargetChar & 0xF0) >> 4;
+        }
+        else
+        {
+            ExtractedIndex = TargetChar & 0x0F;
+        }
+
+        return GetStepByIndex(ExtractedIndex);
+    }
+    __host__ __device__ static int2 GetStepByIndex(unsigned char i)
     {
         int2 Step = { 0,0 };
-        if (i == 0)
+        if (i == 1)
         {
             Step = { 1,0 };
         }
-        else if (i == 1)
+        else if (i == 2)
         {
             Step = { -1,0 };
         }
-        else if (i == 2)
+        else if (i == 3)
         {
             Step = { 0,1 };
         }
-        else if (i == 3)
+        else if (i == 4)
         {
             Step = { 0,-1 };
         }
         return Step;
+    }
+    __host__ __device__ static unsigned char GetIndexByStep(int2 MoveDirection)
+    {
+        if (MoveDirection.x > 0)
+        {
+            return 1u;
+        }
+        else if (MoveDirection.x < 0)
+        {
+            return 2u;
+        }
+        else if (MoveDirection.y > 0)
+        {
+            return 3u;
+        }
+        else if (MoveDirection.y < 0)
+        {
+            return 4u;
+        }
+        return 0u;
     }
 };
 

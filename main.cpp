@@ -58,7 +58,7 @@ void RenderThreadFunction(ATOMIC_Scene& CurrentScene, const STATIC_SceneBlock& S
         {
             if (CurrentMove < AutoMoves[0].StepCount)
             {
-                PlayerInput = AutoMoves[0].Step[CurrentMove];
+                PlayerInput = AutoMoves[0].GetStep(CurrentMove);
                 CurrentMove++;
                 bool Changed = CurrentScene.MovePlayer(PlayerInput, SceneBlock);
                 if (Changed)
