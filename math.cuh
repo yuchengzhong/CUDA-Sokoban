@@ -1,5 +1,6 @@
 #pragma once
 #include <cuda_runtime.h>
+#include <cstdint>
 __host__ __device__ inline float step(float edge, float x)
 {
     return x < edge ? 0.0f : 1.0f;
@@ -185,4 +186,17 @@ __host__ __device__ inline float clamp(float x)
 __host__ __device__ inline float3 clamp(float3 x)
 {
     return make_float3(clamp(x.x), clamp(x.y), clamp(x.z));
+}
+uint32_t __host__ __device__ inline Pack4UCharsToUINT32(unsigned char a, unsigned char b, unsigned char c, unsigned char d)
+{
+    uint32_t packed = 0;
+    packed |= (static_cast<uint32_t>(a) << 24);
+    packed |= (static_cast<uint32_t>(b) << 16);
+    packed |= (static_cast<uint32_t>(c) << 8);
+    packed |= d;
+    return packed;
+}
+uint32_t __host__ __device__ inline Pack1UChar1UChar3ToUINT32(unsigned char a, uchar3 v)
+{
+    return Pack4UCharsToUINT32(a, v.x, v.y, v.z);
 }

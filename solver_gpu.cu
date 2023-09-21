@@ -96,8 +96,8 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const S
         T_NewSolverStates_resize += SolverTimer.Reset(string("NewSolverStates.resize"), false);
 
         SolverTimer.Start();
-        unsigned int N_Blocks = static_cast<unsigned int>((N_SolverStates + N_ThreadsPerBlock - 1) / N_ThreadsPerBlock);
-        GenerateSolverStates << <N_Blocks, N_ThreadsPerBlock >> > (thrust::raw_pointer_cast(SolverStates.data()), thrust::raw_pointer_cast(STATIC_SceneBlocks.data()), static_cast<int>(N_SolverStates), thrust::raw_pointer_cast(NewSolverStates.data()));
+        uint32_t N_Blocks = static_cast<uint32_t>((N_SolverStates + N_ThreadsPerBlock - 1) / N_ThreadsPerBlock);
+        GenerateSolverStates << <N_Blocks, N_ThreadsPerBlock >> > (thrust::raw_pointer_cast(SolverStates.data()), thrust::raw_pointer_cast(STATIC_SceneBlocks.data()), static_cast<uint32_t>(N_SolverStates), thrust::raw_pointer_cast(NewSolverStates.data()));
         cudaDeviceSynchronize();
         T_GenerateSolverStates += SolverTimer.Reset(string("GenerateSolverStates"), false);
         if (Debug)
@@ -117,8 +117,8 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const S
         
         // Same, but with global culling
         SolverTimer.Start();
-        N_Blocks = static_cast<unsigned int>((N_NewSolverStates + N_ThreadsPerBlock - 1) / N_ThreadsPerBlock);
-        MarkInvalidDuplicatesFromGlobal << <N_Blocks, N_ThreadsPerBlock >> > (thrust::raw_pointer_cast(NewSolverStates.data()), static_cast<int>(N_NewSolverStates), thrust::raw_pointer_cast(AllSolverStates.data()), static_cast<int>(AllSolverStates.size()));
+        N_Blocks = static_cast<uint32_t>((N_NewSolverStates + N_ThreadsPerBlock - 1) / N_ThreadsPerBlock);
+        MarkInvalidDuplicatesFromGlobal << <N_Blocks, N_ThreadsPerBlock >> > (thrust::raw_pointer_cast(NewSolverStates.data()), static_cast<uint32_t>(N_NewSolverStates), thrust::raw_pointer_cast(AllSolverStates.data()), static_cast<uint32_t>(AllSolverStates.size()));
         cudaDeviceSynchronize();
         T_MarkInvalidDuplicatesFromGlobal += SolverTimer.Reset(string("MarkInvalidDuplicatesFromGlobal"), false);
         if (Debug)

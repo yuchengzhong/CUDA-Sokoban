@@ -113,8 +113,8 @@ struct ATOMIC_Scene
 {
 public:
     Actor Actors[ATOMIC_MAX_ACTORS];
-    int ActorCount = 0;
-    int SceneIndex = 0;
+    unsigned char ActorCount = 0;
+    unsigned char SceneIndex = 0;
 
     __host__ bool InitialFromScene(const Scene& SourceScene)
     {
@@ -130,7 +130,7 @@ public:
         {
             Actors[i] = SourceScene.Actors[i];
         }
-        ActorCount = static_cast<int>(SourceScene.Actors.size());
+        ActorCount = static_cast<unsigned char>(SourceScene.Actors.size());
         return true;
     }
 
@@ -140,7 +140,7 @@ public:
         {
             return false;
         }
-        ActorCount = static_cast<int>(Actors_.size());
+        ActorCount = static_cast<unsigned char>(Actors_.size());
         for (size_t i = 0; i < Actors_.size(); ++i)
         {
             Actors[i] = Actors_[i];
