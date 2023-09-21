@@ -2,60 +2,13 @@
 #include "solver_gpu_base.cuh"
 #include "solver_gpu_global.cuh"
 
-/*
-    static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly)
-    {
-        vector<ATOMIC_SolverState> AllSolverStates;
-
-        vector<ATOMIC_SolverState> SolverStates;
-        SolverStates.push_back(ATOMIC_SolverState{ InitialScene, ATOMIC_Steps::GetEmptyStep(), false });
-        int IterIndex = 0;
-        while (SolverStates.size() > 0)
-        {
-            vector<ATOMIC_SolverState> NewSolverStates(SolverStates.size() * 4);
-            for (int t = 0; t < SolverStates.size(); t++) //Thread
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    ATOMIC_SolverState Candidate = SolverStates[t];
-                    int2 CurrentMoveStep = ATOMIC_Steps::GetStepByIndex(i);
-                    bool bMoveValid = Candidate.SceneState.MovePlayer(CurrentMoveStep);
-                    Candidate.SceneState.UpdatePhysics();
-
-                    Candidate.StepState.AddStep(CurrentMoveStep);
-
-                    Candidate.WinState = Candidate.SceneState.bIsWin();
-                    Candidate.ValidState = bMoveValid;
-                    NewSolverStates[i + 4 * t] = Candidate;
-                }
-            }
-            //Scan
-            vector<ATOMIC_SolverState> DuplicatedSolverStates = Scan(NewSolverStates);
-            //Remove Duplicate SolverState which has same ATOMIC_Scene
-            vector<ATOMIC_SolverState> NonDuplicatedSolverStates;
-            for (int i = 0; i < DuplicatedSolverStates.size(); i++)
-            {
-                if (!Find(AllSolverStates, DuplicatedSolverStates[i].SceneState))
-                {
-                    NonDuplicatedSolverStates.push_back(DuplicatedSolverStates[i]);
-                    AllSolverStates.push_back(DuplicatedSolverStates[i]);
-                }
-            }
-            SolverStates = NonDuplicatedSolverStates;
-            IterIndex++;
-            if (ShortestOnly && Any(SolverStates))
-            {
-                break;
-            }
-        }
-        vector<ATOMIC_Steps> WinSteps = Scan_SolverState(AllSolverStates);
-        return WinSteps;
-    }
-*/
-
 #define GPU_SOLVER_STATE_FIRST_ALLOC 2048
-vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const STATIC_SceneBlock& SceneBlock, bool ShortestOnly, bool Debug)
+vector<ATOMIC_Steps> GPU_Solver::Solve(const vector<ATOMIC_Scene>& InitialScene, const vector<STATIC_SceneBlock>& SceneBlock, bool ShortestOnly, bool Debug)
 {
+    if (InitialScene.size() != SceneBlock.size() || InitialScene.size() > GPU_SOLVER_STATE_FIRST_ALLOC)
+    {
+        return {};
+    }
     Timer SolverTimer;
     double T_NewSolverStates_resize = 0.0;
     double T_GenerateSolverStates = 0.0;
@@ -69,26 +22,31 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const S
     cudaError_t CudaError = cudaGetLastError();
     //
     const unsigned int N_ThreadsPerBlock = 32;
-    thrust::device_vector<STATIC_SceneBlock> STATIC_SceneBlocks(1);
-    STATIC_SceneBlocks[0] = SceneBlock;
 
     thrust::device_vector<ATOMIC_SolverState> AllSolverStates;
     //
     thrust::device_vector<ATOMIC_SolverState> SolverStates(GPU_SOLVER_STATE_FIRST_ALLOC);
     thrust::device_vector<ATOMIC_SolverState> NewSolverStates(GPU_SOLVER_STATE_FIRST_ALLOC * 4); // TODO: Ping pong
 
-    SolverStates[0] = ATOMIC_SolverState{ InitialScene, ATOMIC_Steps::GetEmptyStep(), false };
-    size_t N_SolverStates = 1;
+    thrust::device_vector<STATIC_SceneBlock> STATIC_SceneBlocks(InitialScene.size());
+    for (int i = 0; i < InitialScene.size(); i++)
+    {
+        ATOMIC_Scene CurrentScene = InitialScene[i];
+        CurrentScene.SceneIndex = i;
+        SolverStates[i] = ATOMIC_SolverState{ CurrentScene, ATOMIC_Steps::GetEmptyStep(), false };
+        STATIC_SceneBlocks[i] = SceneBlock[i];
+    }
+    size_t N_SolverStates = InitialScene.size();
     size_t N_NewSolverStates = 0;
     int IterIndex = 0;
 
     auto PredValid = IsSolverStateValid();
     auto PredWin = IsSolverStateWin();
-    while (N_SolverStates > 0)
+    while (N_SolverStates > 0 && IterIndex < ATOMIC_MAX_STEP)
     {
-        SolverTimer.Start();
         N_NewSolverStates = N_SolverStates * 4;
         cout << "First N_NewSolverStates:" << N_NewSolverStates << "\n";
+        SolverTimer.Start();
         if (NewSolverStates.size() < N_NewSolverStates)
         {
             NewSolverStates = thrust::device_vector<ATOMIC_SolverState>(N_NewSolverStates);
@@ -109,8 +67,8 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const S
             }
         }
         // Scan
-        SolverTimer.Start();
         cout << "T_Scan_NewSolverStates N_NewSolverStates:" << N_NewSolverStates << "\n";
+        SolverTimer.Start();
         N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, PredValid);
         T_Scan_NewSolverStates += SolverTimer.Reset(string("Scan NewSolverStates"), false);
         // TODO: Remove duplicated in DuplicatedSolverStates
@@ -131,7 +89,6 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const S
         }
         SolverTimer.Start();
         N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, PredValid);
-        cout << "T_Scan_DuplicatedSolverStates N_NewSolverStates:" << N_NewSolverStates << "\n";
         if (SolverStates.size() < N_NewSolverStates) // If pingpong, replace this
         {
             SolverStates = thrust::device_vector<ATOMIC_SolverState>(N_NewSolverStates);
@@ -139,6 +96,7 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, const S
         thrust::copy(NewSolverStates.begin(), NewSolverStates.begin() + N_NewSolverStates, SolverStates.begin()); // first, last, result
         N_SolverStates = N_NewSolverStates;
         T_Scan_DuplicatedSolverStates += SolverTimer.Reset(string("Scan DuplicatedSolverStates"), false);
+        cout << "T_Scan_DuplicatedSolverStates N_NewSolverStates:" << N_NewSolverStates << "\n";
         // Add to AllSolverStates
         SolverTimer.Start();
         AllSolverStates.insert(AllSolverStates.end(), SolverStates.begin(), SolverStates.end());

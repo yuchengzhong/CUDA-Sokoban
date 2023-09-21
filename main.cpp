@@ -13,6 +13,8 @@
 #include "math.cuh"
 #include "timer.h"
 #include "vectorize_scene.cuh"
+
+#include "test_scene.hpp"
 using namespace std;
 
 std::mutex SceneMutex;
@@ -107,57 +109,31 @@ int main()
     HBITMAP HBitmap = CreateCompatibleBitmap(TargetHDC, ImageSizeW, ImageSizeH);
     HBITMAP HOldBitmap = (HBITMAP)SelectObject(TempDC, HBitmap);
 
-    Scene TestScene;
-    vector<Actor> SceneActor = {};
-    vector<uint8_t> SceneBlock = {
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-
-        1, 1, 1, 1, 1, 1, 1, 1,
-        1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 1,
-        1, 1, 1, 1, 1, 1, 1, 1,
-
-        1, 0, 1, 0, 1, 0, 1, 1,
-        0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0,
-        0, 0, 0, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 0, 0, 0, 0,
-        1, 1, 0, 1, 0, 1, 0, 1,
-    };
-    int3 SceneSize = { 8, 8, 3 };
-    TestScene.SetupScene(SceneBlock, SceneActor, SceneSize);
-    TestScene.AddActor({ SOKOBAN_PLAYER_START, 0, {1, 1, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
-    TestScene.AddActor({ SOKOBAN_PLAYER, 0, {0, 0, 0}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
-    TestScene.AddActor({ SOKOBAN_BOX, 0, {2, 4, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
-    TestScene.AddActor({ SOKOBAN_BOX, 0, {3, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
-    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
-    TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
-
+    Scene TestScene = GetSimpleScene();
     ATOMIC_Scene AtomicScene;
     AtomicScene.InitialFromScene(TestScene);
     STATIC_SceneBlock StaticSceneBlock;
     StaticSceneBlock.InitialFromScene(TestScene);
     //AtomicScene.Debug();
+    int N_SolveSceneNum = 1;
 
     SolverTimer.Start();
-    AutoMoves = CPU_Solver::Solve(AtomicScene, StaticSceneBlock, true);
+    for (int i = 0; i < N_SolveSceneNum; i++)
+    {
+        AutoMoves = CPU_Solver::Solve(AtomicScene, StaticSceneBlock, true);
+    }
     SolverTimer.Reset(string("CPU Solver"), true);
+    printf("All Possible: %zd\n", AutoMoves.size());
 
+    vector<ATOMIC_Scene> InitialScene;
+    vector<STATIC_SceneBlock> SceneBlocks;
+    for (int i = 0; i < N_SolveSceneNum; i++)
+    {
+        InitialScene.push_back(AtomicScene);
+        SceneBlocks.push_back(StaticSceneBlock);
+    }
     SolverTimer.Start();
-    AutoMoves = GPU_Solver::Solve(AtomicScene, StaticSceneBlock, true);
+    AutoMoves = GPU_Solver::Solve(InitialScene, SceneBlocks, true);
     SolverTimer.Reset(string("GPU Solver"), true);
     printf("All Possible: %zd\n", AutoMoves.size());
     /*

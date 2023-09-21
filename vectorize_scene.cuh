@@ -8,14 +8,14 @@
 
 //4 is enough for wsad and zero move
 #define MOVEMENT_BIT 4
-#define ATOMIC_MAX_STEP 255
+#define ATOMIC_MAX_STEP 1024
 
 
 struct ATOMIC_Steps
 {
 public:
     unsigned char Step[ATOMIC_MAX_STEP / (8 / MOVEMENT_BIT) + 1];
-    unsigned char StepCount = 0;
+    unsigned int StepCount = 0;
     __host__ __device__ bool AddStep(int2 MoveDirection)
     {
         unsigned char NewIndex = GetIndexByStep(MoveDirection);

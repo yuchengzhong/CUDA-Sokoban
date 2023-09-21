@@ -10,7 +10,7 @@ enable_language(CUDA)
 
 include_directories(${CMAKE_SOURCE_DIR})
 file(GLOB SOURCES "*.cpp" "*.cu")
-file(GLOB HEADERS "*.h" "*.cuh")
+file(GLOB HEADERS "*.h" "*.hpp" "*.cuh")
 
 add_executable(CudaSokoban ${SOURCES} ${HEADERS})
 
