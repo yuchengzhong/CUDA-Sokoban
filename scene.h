@@ -37,7 +37,7 @@ struct Actor
 	unsigned char ActorType = 255;
 	unsigned char ActorState = 0;
 	uchar3 Location = SOKOBAN_DEFAULT_UCHAR3;
-	unsigned char Rotation = SOKOBAN_ACTOR_DEFAULT_ROTATION;
+	//unsigned char Rotation = SOKOBAN_ACTOR_DEFAULT_ROTATION; //Move this to ActorState
 	unsigned char Id = SOKOBAN_ACTOR_DEFAULT_ID;
 
 	__host__ __device__ inline bool operator!=(const Actor& ActorOther) const
@@ -45,7 +45,7 @@ struct Actor
 		return (ActorOther.ActorType != ActorType) ||
 			(ActorOther.ActorState != ActorState) ||
 			(ActorOther.Location != Location) ||
-			(ActorOther.Rotation != Rotation) ||
+			//(ActorOther.Rotation != Rotation) ||
 			(ActorOther.Id != Id);
 	}
 	__host__ __device__ inline bool operator==(const Actor& ActorOther) const
@@ -53,7 +53,7 @@ struct Actor
 		return (ActorOther.ActorType == ActorType) &&
 			(ActorOther.ActorState == ActorState) &&
 			(ActorOther.Location == Location) &&
-			(ActorOther.Rotation == Rotation) &&
+			//(ActorOther.Rotation == Rotation) &&
 			(ActorOther.Id == Id);
 	}
 };

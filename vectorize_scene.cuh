@@ -4,7 +4,7 @@
 #include <string>
 
 #define ATOMIC_MAX_BLOCKS 16*16*16
-#define ATOMIC_MAX_ACTORS 64
+#define ATOMIC_MAX_ACTORS 16
 #define ATOMIC_MAX_STEP 256
 
 

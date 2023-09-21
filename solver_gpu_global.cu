@@ -30,7 +30,6 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
     {
         unsigned char ActorState;
         uchar3 Location;
-        unsigned char Rotation;
     } SHARED_ActorsFind[CHUNK_SIZE * ATOMIC_MAX_ACTORS];
 
     __shared__ int SHARED_SceneIndex[CHUNK_SIZE];
@@ -55,7 +54,6 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
                 int Index = threadIdx.x * ATOMIC_MAX_ACTORS + j;
                 SHARED_ActorsFind[Index].ActorState = { CurrentStateToFind.SceneState.Actors[j].ActorState };
                 SHARED_ActorsFind[Index].Location = CurrentStateToFind.SceneState.Actors[j].Location;
-                SHARED_ActorsFind[Index].Rotation = CurrentStateToFind.SceneState.Actors[j].Rotation;
             }
             SHARED_SceneIndex[threadIdx.x] = CurrentStateToFind.SceneState.SceneIndex;
         }
@@ -72,8 +70,7 @@ __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark
             {
                 int Index = i * ATOMIC_MAX_ACTORS + j;
                 if (CurrentStateToMark.SceneState.Actors[j].ActorState != SHARED_ActorsFind[Index].ActorState ||
-                    CurrentStateToMark.SceneState.Actors[j].Location != SHARED_ActorsFind[Index].Location ||
-                    CurrentStateToMark.SceneState.Actors[j].Rotation != SHARED_ActorsFind[Index].Rotation
+                    CurrentStateToMark.SceneState.Actors[j].Location != SHARED_ActorsFind[Index].Location
                     )
                 {
                     bCanSkip = true;
