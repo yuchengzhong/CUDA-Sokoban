@@ -67,7 +67,6 @@ Scene GetComplexScene()
     TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 11, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
     return TestScene;
 }
-
 Scene GetSimpleScene()
 {
     Scene TestScene;
@@ -109,4 +108,82 @@ Scene GetSimpleScene()
     TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {4, 2, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
     TestScene.AddActor({ SOKOBAN_BOX_TARGET, 0, {5, 5, 1}, SOKOBAN_ACTOR_DEFAULT_ID }); // , SOKOBAN_ACTOR_DEFAULT_ROTATION
     return TestScene;
+}
+Scene GetHardScene2()
+{
+    Scene HardScene;
+    vector<Actor> SceneActor = {};
+    vector<uint8_t> SceneBlock = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 5, 5, 5, 5, 5, 5, 5, 1,
+        1, 5, 5, 0, 4, 0, 0, 0, 1,
+        1, 0, 0, 4, 0, 4, 0, 0, 1,
+        1, 0, 4, 0, 4, 0, 4, 0, 1,
+        1, 0, 0, 4, 0, 4, 0, 0, 1,
+        1, 0, 0, 0, 4, 0, 0, 0, 1,
+        1, 3, 0, 0, 0, 0, 0, 0, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+        1, 0, 1, 0, 1, 0, 1, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 1, 0, 1, 0, 1, 0, 1,
+    };
+    int3 SceneSize = { 9, 9, 3 };
+    HardScene.SetupScene(SceneBlock, SceneActor, SceneSize);
+    return HardScene;
+}
+Scene GetHardScene()
+{
+    Scene HardScene;
+    vector<Actor> SceneActor = {};
+    vector<uint8_t> SceneBlock = {
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 4, 5, 4, 0, 0, 1,
+        1, 0, 0, 5, 4, 5, 0, 0, 1,
+        1, 0, 0, 0, 5, 4, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 0, 0, 0, 3, 1,
+        1, 1, 1, 1, 1, 1, 1, 1, 1,
+
+        1, 0, 1, 0, 1, 0, 1, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 0, 0, 0, 0, 1,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 0, 1, 0, 1, 0, 1, 0, 1,
+    };
+    int3 SceneSize = { 9, 9, 3 };
+    HardScene.SetupScene(SceneBlock, SceneActor, SceneSize);
+    return HardScene;
 }

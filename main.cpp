@@ -23,7 +23,7 @@ int2 PlayerInput = {0,0};
 
 vector<ATOMIC_Steps> AutoMoves;
 Timer SolverTimer;
-int CurrentMove = 0;
+unsigned int CurrentMove = 0;
 void CopyBufferToHDC(HDC& TargetHDC, const vector<float3>& ImageBuffer, int ImageSizeW, int ImageSizeH)
 {
     for (int x = 0; x < ImageSizeW; ++x)
@@ -109,14 +109,13 @@ int main()
     HBITMAP HBitmap = CreateCompatibleBitmap(TargetHDC, ImageSizeW, ImageSizeH);
     HBITMAP HOldBitmap = (HBITMAP)SelectObject(TempDC, HBitmap);
 
-    Scene TestScene = GetSimpleScene();
+    Scene TestScene = GetHardScene(); // GetSimpleScene();
     ATOMIC_Scene AtomicScene;
     AtomicScene.InitialFromScene(TestScene);
     STATIC_SceneBlock StaticSceneBlock;
     StaticSceneBlock.InitialFromScene(TestScene);
     //AtomicScene.Debug();
     int N_SolveSceneNum = 1;
-
     SolverTimer.Start();
     for (int i = 0; i < N_SolveSceneNum; i++)
     {
@@ -124,7 +123,7 @@ int main()
     }
     SolverTimer.Reset(string("CPU Solver"), true);
     printf("All Possible: %zd\n", AutoMoves.size());
-
+    
     vector<ATOMIC_Scene> InitialScene;
     vector<STATIC_SceneBlock> SceneBlocks;
     for (int i = 0; i < N_SolveSceneNum; i++)

@@ -1,4 +1,5 @@
 #pragma once
+#include <iostream>
 #include <vector>
 #include <cuda_runtime.h>
 #include <cassert>
@@ -85,9 +86,45 @@ public:
 	void SetupScene(const vector<uint8_t>& SceneBlock_, const vector<Actor>& Actors_, int3 SceneSize_)
 	{
 		assert(SceneBlock_.size() == SceneSize_.x * SceneSize_.y * SceneSize_.z);
-		SceneBlock = SceneBlock_;
 		Actors = Actors_;
+		SceneBlock.resize(SceneBlock_.size());
 		SceneSize = SceneSize_;
+		for (uint8_t x = 0; x < SceneSize.x; x++)
+		{
+			for (uint8_t y = 0; y < SceneSize.y; y++)
+			{
+				for (uint8_t z = 0; z < SceneSize.z; z++)
+				{
+					int Index = x + y * SceneSize.x + z * SceneSize.x * SceneSize.y;
+					uint8_t BlockType = SceneBlock_[Index];
+					if (BlockType == SOKOBAN_WALL)
+					{
+						SceneBlock[Index] = BlockType;
+					}
+					else if (BlockType == SOKOBAN_EMPTY)
+					{
+						SceneBlock[Index] = BlockType;
+					}
+					else if (BlockType == SOKOBAN_PLAYER)
+					{
+						AddActor({ SOKOBAN_PLAYER_START, 0, {x, y, z}, SOKOBAN_ACTOR_DEFAULT_ID });
+						AddActor({ SOKOBAN_PLAYER, 0, {x, y, z}, SOKOBAN_ACTOR_DEFAULT_ID });
+						std::cout << Actors.size() << "\n";
+					}
+					else if (BlockType == SOKOBAN_BOX)
+					{
+						AddActor({ SOKOBAN_BOX, 0, {x, y, z}, SOKOBAN_ACTOR_DEFAULT_ID });
+						std::cout << Actors.size() << "\n";
+					}
+					else if (BlockType == SOKOBAN_BOX_TARGET)
+					{
+						AddActor({ SOKOBAN_BOX_TARGET, 0, {x, y, z}, SOKOBAN_ACTOR_DEFAULT_ID });
+						std::cout << Actors.size() << "\n";
+					}
+
+				}
+			}
+		}
 	}
 	void AddActor(Actor Actor)
 	{
