@@ -3,29 +3,28 @@
 #include <thrust/reduce.h>
 //Scan
 template <typename Predicate>
-thrust::device_vector<ATOMIC_SolverState> Scan(const thrust::device_vector<ATOMIC_SolverState>& NewSolverStates, Predicate Pred)
+size_t Scan(thrust::device_vector<ATOMIC_SolverState>& NewSolverStates, const size_t N, Predicate Pred)
 {
-    thrust::device_vector<ATOMIC_SolverState> FilteredSolverStates(NewSolverStates.size());
     auto End = thrust::copy_if
     (
         NewSolverStates.begin(),
-        NewSolverStates.end(),
-        FilteredSolverStates.begin(),
+        NewSolverStates.begin() + N,
+        NewSolverStates.begin(),
         Pred
     );
-    FilteredSolverStates.resize(thrust::distance(FilteredSolverStates.begin(), End));
-    return FilteredSolverStates;
+    size_t NewSize = End - NewSolverStates.begin();
+    return NewSize;
 }
-template thrust::device_vector<ATOMIC_SolverState> Scan<IsSolverStateValid>(const thrust::device_vector<ATOMIC_SolverState>&, IsSolverStateValid); // let compiler know
-template thrust::device_vector<ATOMIC_SolverState> Scan<IsSolverStateWin>(const thrust::device_vector<ATOMIC_SolverState>&, IsSolverStateWin);
+template size_t Scan<IsSolverStateValid>(thrust::device_vector<ATOMIC_SolverState>&, const size_t, IsSolverStateValid); // let compiler know
+template size_t Scan<IsSolverStateWin>(thrust::device_vector<ATOMIC_SolverState>&, const size_t, IsSolverStateWin);
 
-thrust::device_vector<ATOMIC_Steps> ExtractSteps(const thrust::device_vector<ATOMIC_SolverState>& SolverStates)
+thrust::device_vector<ATOMIC_Steps> ExtractSteps(const thrust::device_vector<ATOMIC_SolverState>& SolverStates, const size_t N)
 {
-    thrust::device_vector<ATOMIC_Steps> ExtractedSteps(SolverStates.size());
+    thrust::device_vector<ATOMIC_Steps> ExtractedSteps(N);
     thrust::transform
     (
         SolverStates.begin(),
-        SolverStates.end(),
+        SolverStates.begin() + N,
         ExtractedSteps.begin(),
         GetSteps()
     );

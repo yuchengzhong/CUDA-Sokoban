@@ -26,50 +26,65 @@ __global__ void GenerateSolverStates(const ATOMIC_SolverState* SolverStates, con
 __global__ void MarkInvalidDuplicatesFromGlobal(ATOMIC_SolverState* StatesToMark, const int N_StatesToMark, const ATOMIC_SolverState* StatesFind, const int N_StatesFind)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    __shared__ Actor SHARED_ActorsFind[CHUNK_SIZE * ATOMIC_MAX_ACTORS];
-    __shared__ int SHARED_ActorCount;
-
-
-    if (threadIdx.x == 0)
+    __shared__ struct 
     {
-        SHARED_ActorCount = StatesToMark[0].SceneState.ActorCount;
-    }
-    __syncthreads();
+        unsigned char ActorState;
+        uchar3 Location;
+        unsigned char Rotation;
+    } SHARED_ActorsFind[CHUNK_SIZE * ATOMIC_MAX_ACTORS];
 
-    if (idx >= N_StatesToMark)
+    __shared__ int SHARED_SceneIndex[CHUNK_SIZE];
+    __shared__ int SHARED_ActorCount[CHUNK_SIZE];
+
+    if (N_StatesFind <= 0 || idx >= N_StatesToMark)
     {
         return;
     }
 
     int N_Chunks = (N_StatesFind + CHUNK_SIZE - 1) / CHUNK_SIZE;
-
+    const ATOMIC_SolverState CurrentStateToMark = StatesToMark[idx];
     for (int Chunk = 0; Chunk < N_Chunks; Chunk++)
     {
         int ChunkIdx = Chunk * CHUNK_SIZE + threadIdx.x;
         if (ChunkIdx < N_StatesFind)
         {
-            for (int j = 0; j < SHARED_ActorCount; ++j)
+            const ATOMIC_SolverState CurrentStateToFind = StatesFind[ChunkIdx];
+            SHARED_ActorCount[threadIdx.x] = CurrentStateToFind.SceneState.ActorCount;
+            for (int j = 0; j < SHARED_ActorCount[threadIdx.x]; ++j)
             {
-                SHARED_ActorsFind[threadIdx.x * SHARED_ActorCount + j] = StatesFind[ChunkIdx].SceneState.Actors[j];
+                int Index = threadIdx.x * ATOMIC_MAX_ACTORS + j;
+                SHARED_ActorsFind[Index].ActorState = { CurrentStateToFind.SceneState.Actors[j].ActorState };
+                SHARED_ActorsFind[Index].Location = CurrentStateToFind.SceneState.Actors[j].Location;
+                SHARED_ActorsFind[Index].Rotation = CurrentStateToFind.SceneState.Actors[j].Rotation;
             }
+            SHARED_SceneIndex[threadIdx.x] = CurrentStateToFind.SceneState.SceneIndex;
         }
         __syncthreads();
         for (int i = 0; i < CHUNK_SIZE && (Chunk * CHUNK_SIZE + i) < N_StatesFind; i++)
         {
-            bool bCanSkip = false;
-            for (int j = 0; j < SHARED_ActorCount; ++j)
+            if (SHARED_SceneIndex[i] != CurrentStateToMark.SceneState.SceneIndex ||
+                SHARED_ActorCount[i] != CurrentStateToMark.SceneState.ActorCount)
             {
-                if (StatesToMark[idx].SceneState.Actors[j] != SHARED_ActorsFind[i * SHARED_ActorCount + j])
+                continue;
+            }
+            bool bCanSkip = false;
+            for (int j = 0; j < CurrentStateToMark.SceneState.ActorCount; ++j)
+            {
+                int Index = i * ATOMIC_MAX_ACTORS + j;
+                if (CurrentStateToMark.SceneState.Actors[j].ActorState != SHARED_ActorsFind[Index].ActorState ||
+                    CurrentStateToMark.SceneState.Actors[j].Location != SHARED_ActorsFind[Index].Location ||
+                    CurrentStateToMark.SceneState.Actors[j].Rotation != SHARED_ActorsFind[Index].Rotation
+                    )
                 {
                     bCanSkip = true;
                     break;
                 }
             }
-            if (bCanSkip)
+            if (!bCanSkip)
             {
+                StatesToMark[idx].ValidState = false;
                 break;
             }
-            StatesToMark[idx].ValidState = false;
         }
         __syncthreads();
     }

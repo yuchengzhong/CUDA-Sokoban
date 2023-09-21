@@ -26,7 +26,7 @@ struct GetSteps
         return State.StepState;
     }
 };
-thrust::device_vector<ATOMIC_Steps> ExtractSteps(const thrust::device_vector<ATOMIC_SolverState>& SolverStates);
+thrust::device_vector<ATOMIC_Steps> ExtractSteps(const thrust::device_vector<ATOMIC_SolverState>& SolverStates, const size_t N);
 
 template <typename Predicate>
-thrust::device_vector<ATOMIC_SolverState> Scan(const thrust::device_vector<ATOMIC_SolverState>& NewSolverStates, Predicate Pred);
+size_t Scan(thrust::device_vector<ATOMIC_SolverState>& NewSolverStates, const size_t N, Predicate Pred);

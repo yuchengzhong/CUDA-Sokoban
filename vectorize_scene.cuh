@@ -59,6 +59,7 @@ public:
     Actor Actors[ATOMIC_MAX_ACTORS];
     int3 SceneSize = {0,0,0};
     int ActorCount = 0;
+    int SceneIndex = 0;
 
     __host__ bool InitialFromScene(const Scene& SourceScene)
     {
