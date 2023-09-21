@@ -1,5 +1,6 @@
 #include "solver_gpu.cuh"
 #include "solver_gpu_base.cuh"
+#include "solver_gpu_global.cuh"
 
 /*
     static vector<ATOMIC_Steps> Solve(const ATOMIC_Scene& InitialScene, bool ShortestOnly)
