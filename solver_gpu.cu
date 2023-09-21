@@ -78,6 +78,9 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
     size_t N_SolverStates = 1;
     size_t N_NewSolverStates = 0;
     int IterIndex = 0;
+
+    auto PredValid = IsSolverStateValid();
+    auto PredWin = IsSolverStateWin();
     while (N_SolverStates > 0)
     {
         SolverTimer.Start();
@@ -105,7 +108,7 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
         // Scan
         SolverTimer.Start();
         cout << "T_Scan_NewSolverStates N_NewSolverStates:" << N_NewSolverStates << "\n";
-        N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, IsSolverStateValid());
+        N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, PredValid);
         T_Scan_NewSolverStates += SolverTimer.Reset(string("Scan NewSolverStates"), false);
         // TODO: Remove duplicated in DuplicatedSolverStates
         
@@ -124,7 +127,7 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
             }
         }
         SolverTimer.Start();
-        N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, IsSolverStateValid());
+        N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, PredValid);
         cout << "T_Scan_DuplicatedSolverStates N_NewSolverStates:" << N_NewSolverStates << "\n";
         if (SolverStates.size() < N_NewSolverStates) // If pingpong, replace this
         {
@@ -139,7 +142,7 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
         T_insert += SolverTimer.Reset(string("insert"), false);
         //Scan win state
         SolverTimer.Start();
-        N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, IsSolverStateWin());
+        N_NewSolverStates = Scan(NewSolverStates, N_NewSolverStates, PredWin);
         T_Scan_SolverStates += SolverTimer.Reset(string("Scan SolverStates"), false);
         if (ShortestOnly && N_NewSolverStates > 0)
         {
@@ -163,6 +166,7 @@ vector<ATOMIC_Steps> GPU_Solver::Solve(const ATOMIC_Scene& InitialScene, bool Sh
     cout << "insert " << T_insert << "ms\n";
     cout << "Scan_SolverStates " << T_Scan_SolverStates << "ms\n";
     cout << "ExtractSteps " << T_ExtractSteps << "ms\n";
+    cout << "All " << (T_NewSolverStates_resize + T_GenerateSolverStates + T_Scan_NewSolverStates + T_MarkInvalidDuplicatesFromGlobal + T_Scan_DuplicatedSolverStates + T_insert + T_Scan_SolverStates + T_ExtractSteps) << "ms\n";
     cout << "\n";
 
     return CPU_WinSteps;

@@ -7,21 +7,21 @@
 // closure for thrust
 struct IsSolverStateValid
 {
-    __device__ bool operator()(ATOMIC_SolverState State) const
+    __device__ __forceinline__ bool operator()(ATOMIC_SolverState State) const
     {
         return State.ValidState;
     }
 };
 struct IsSolverStateWin
 {
-    __device__ bool operator()(ATOMIC_SolverState State) const
+    __device__ __forceinline__ bool operator()(ATOMIC_SolverState State) const
     {
         return State.WinState;
     }
 };
 struct GetSteps
 {
-    __device__ ATOMIC_Steps operator()(ATOMIC_SolverState State) const
+    __device__ __forceinline__ ATOMIC_Steps operator()(ATOMIC_SolverState State) const
     {
         return State.StepState;
     }
